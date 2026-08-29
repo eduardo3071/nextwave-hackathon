@@ -357,7 +357,7 @@ export type Database = {
         | "done"
         | "released"
         | "failed"
-      commitment_state: "proposed" | "anchored" | "void"
+      commitment_state: "proposed" | "anchored" | "void" | "read_back"
       escalation_state: "open" | "approved" | "rejected"
       policy_decision: "allow" | "deny" | "block" | "escalate"
     }
@@ -496,7 +496,7 @@ export const Constants = {
         "released",
         "failed",
       ],
-      commitment_state: ["proposed", "anchored", "void"],
+      commitment_state: ["proposed", "anchored", "void", "read_back"],
       escalation_state: ["open", "approved", "rejected"],
       policy_decision: ["allow", "deny", "block", "escalate"],
     },
