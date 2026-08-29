@@ -80,6 +80,7 @@ function Counter({
       return () => window.clearTimeout(id);
     }
     prev.current = value;
+    return undefined;
   }, [value, flashOnIncrement]);
 
   return (
