@@ -13,7 +13,7 @@ export function QuoteTable({
   auction: Auction | null;
   currency: string;
 }) {
-  const sorted = [...quotes].sort((a, b) => {
+  const sorted = (Array.isArray(quotes) ? [...quotes] : []).sort((a, b) => {
     if (a.winner !== b.winner) return a.winner ? -1 : 1;
     const av = a.approved ?? a.final_ask ?? Number.POSITIVE_INFINITY;
     const bv = b.approved ?? b.final_ask ?? Number.POSITIVE_INFINITY;
