@@ -78,6 +78,17 @@ class AgentSession:
         self.auction = AUCTIONS.get(call.get("auction_id"))
         m = (self.auction.mandate if self.auction
              else db.mandate(call["operation_id"]))
+
+        # Fase 2: o mandato compilado é OBRIGATÓRIO. Sem hash não há decisão
+        # rastreável — R3 do enunciado ("sob qual mandato").
+        self.mandate_hash = m.get("mandate_hash")
+        self.ladder = m.get("ladder") or []
+        self.band = m.get("escalation_band")
+        self.break_even = (Decimal(str(m["break_even_rate"]))
+                           if m.get("break_even_rate") else None)
+        if not self.mandate_hash:
+            raise RuntimeError("negociar sem mandato emitido — a fase 2 não rodou")
+
         self.state = NegotiationState(mandate=Mandate(
             target_rate=Decimal(str(m["target_rate"])),
             max_rate=Decimal(str(m["max_rate"])),
@@ -137,11 +148,22 @@ class AgentSession:
                 "decision": res.decision.value,
                 "amount": float(res.amount) if res.amount else None,
                 "reason": res.reason, "utterance": res.utterance,
-                "round": self.state.rounds})
+                "round": self.state.rounds,
+                "mandate_hash": self.mandate_hash,   # ← "sob qual mandato", R3
+            })
 
             if res.decision is Decision.ESCALATE:
                 await self._escalate(res.reason)
                 return {"spoken": False, "instruction": "Ya escalé. No hables de precios."}
+
+            # Faixa "bom e proibido": o compilador nomeou antes da 1ª ligação.
+            # Quando a Ruiz pede 9.200, o log diz `within_escalation_band`,
+            # não "o agente recusou".
+            if res.decision is Decision.DENY and res.reason == "above_max_rate":
+                if self.band and self.band["from"] < float(ask) <= self.band["to"]:
+                    await self._escalate("within_escalation_band")
+                    return {"spoken": False,
+                            "instruction": "Ya escalé. No hables de precios."}
 
             # FECHAMENTO precisa passar pelo LOCK do leilão.
             if res.decision is Decision.ALLOW and res.reason == "at_or_below_target" and self.auction:
@@ -184,7 +206,9 @@ class AgentSession:
                 db.insert("policy_events", {
                     "call_id": self.call_id, "decision": "block",
                     "reason": "unapproved_amount_in_speech", "utterance": text,
-                    "round": self.state.rounds})
+                    "round": self.state.rounds,
+                    "mandate_hash": self.mandate_hash,
+                })
         await self.ws.send_text(json.dumps({"type": "text", "token": text, "last": True}))
         db.insert("utterances", {"call_id": self.call_id, "speaker": "agent",
                                  "text": text, "t_ms": self._ms()})
