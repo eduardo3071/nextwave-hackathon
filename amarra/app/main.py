@@ -33,13 +33,13 @@ from app import twilio_voice as tw
 from app.agent import AgentSession, SESSIONS
 from app.auction import AUCTIONS, Auction
 from app.db import db
-from app.evidence import anchor_recording
 from app.phase1_detected import router as phase1_router, start_clock
 from app.phase2_mandate import router as phase2_router
 from app.phase3_market import router as phase3_router
 from app.phase4_negotiating import router as phase4_router
 from app.phase5_reserved import router as phase5_router
 from app.phase6_committed import router as phase6_router
+from app.phase7_verified import router as phase7_router, verify_call
 
 app = FastAPI(title="Amarra")
 app.include_router(phase1_router)
@@ -50,6 +50,7 @@ app.include_router(phase3_router)
 app.include_router(phase4_router)
 app.include_router(phase5_router)
 app.include_router(phase6_router)
+app.include_router(phase7_router)
 
 DIAL_SPACING_S = 1.2   # limite padrão da Twilio é 1 chamada/segundo
 
@@ -240,7 +241,9 @@ async def recording(req: Request, bg: BackgroundTasks):
     call = db.find("calls", "conference_sid", conf_sid) or db.find("calls", "call_sid", f.get("CallSid"))
     if call:
         db.update("calls", call["id"], {"recording_url": url, "ended_at": "now()"})
-        bg.add_task(anchor_recording, call["id"], url)
+        # fase 7: baixa da Twilio autenticado, transcreve, ancora cada citação,
+        # sobe o áudio pra URL pública, dispara o recap e avança a fase.
+        bg.add_task(verify_call, call["id"], url)
     return Response(status_code=204)
 
 
