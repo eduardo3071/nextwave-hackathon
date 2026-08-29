@@ -30,7 +30,7 @@ export function PhaseRail({
 }: {
   operation: Operation | null;
   phaseEvents: PhaseEvent[];
-  onOpenEscalation?: () => void;
+  onOpenEscalation?: (() => void) | undefined;
 }) {
   const phase: Phase | null = operation?.phase ?? null;
   const failed = phase === "failed";
