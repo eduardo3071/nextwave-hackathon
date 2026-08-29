@@ -148,7 +148,7 @@ function BranchCard({
   event: PhaseEvent;
   phase: BranchPhase;
   currency: string;
-  onOpenEscalation?: () => void;
+  onOpenEscalation?: (() => void) | undefined;
 }) {
   const t = BRANCH_TONE[phase];
   const payload = event.payload ?? {};
