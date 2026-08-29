@@ -34,10 +34,20 @@ from app.agent import AgentSession, SESSIONS
 from app.auction import AUCTIONS, Auction
 from app.db import db
 from app.evidence import anchor_recording
+from app.phase1_detected import router as phase1_router, start_clock
 
 app = FastAPI(title="Amarra")
+app.include_router(phase1_router)
 
 DIAL_SPACING_S = 1.2   # limite padrão da Twilio é 1 chamada/segundo
+
+
+@app.on_event("startup")
+async def resume_clocks():
+    """Se o backend reiniciar no meio da demo, os relógios voltam sozinhos."""
+    for op in (db.c.table("operations").select("id")
+               .not_.in_("phase", ["closed", "failed"]).execute().data):
+        start_clock(op["id"])
 
 
 # ═══════════════════════════════════════════════════════════════════════════
