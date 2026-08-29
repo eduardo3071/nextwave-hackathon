@@ -14,7 +14,333 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      auctions: {
+        Row: {
+          created_at: string
+          id: string
+          operation_id: string
+          settled_at: string | null
+          started_at: string | null
+          state: Database["public"]["Enums"]["auction_state"]
+          winner_call_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          operation_id: string
+          settled_at?: string | null
+          started_at?: string | null
+          state?: Database["public"]["Enums"]["auction_state"]
+          winner_call_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          operation_id?: string
+          settled_at?: string | null
+          started_at?: string | null
+          state?: Database["public"]["Enums"]["auction_state"]
+          winner_call_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auctions_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auctions_winner_call_fk"
+            columns: ["winner_call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calls: {
+        Row: {
+          auction_id: string
+          carrier_name: string
+          carrier_phone: string | null
+          created_at: string
+          final_ask: number | null
+          id: string
+          is_winner: boolean
+          outcome_reason: string | null
+          recording_url: string | null
+          released_at: string | null
+          rounds: number
+          status: Database["public"]["Enums"]["call_status"]
+        }
+        Insert: {
+          auction_id: string
+          carrier_name: string
+          carrier_phone?: string | null
+          created_at?: string
+          final_ask?: number | null
+          id?: string
+          is_winner?: boolean
+          outcome_reason?: string | null
+          recording_url?: string | null
+          released_at?: string | null
+          rounds?: number
+          status?: Database["public"]["Enums"]["call_status"]
+        }
+        Update: {
+          auction_id?: string
+          carrier_name?: string
+          carrier_phone?: string | null
+          created_at?: string
+          final_ask?: number | null
+          id?: string
+          is_winner?: boolean
+          outcome_reason?: string | null
+          recording_url?: string | null
+          released_at?: string | null
+          rounds?: number
+          status?: Database["public"]["Enums"]["call_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "auctions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commitments: {
+        Row: {
+          call_id: string
+          created_at: string
+          field: string
+          id: string
+          quote: string | null
+          state: Database["public"]["Enums"]["commitment_state"]
+          t_end_ms: number | null
+          t_start_ms: number | null
+          value: string
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          field: string
+          id?: string
+          quote?: string | null
+          state?: Database["public"]["Enums"]["commitment_state"]
+          t_end_ms?: number | null
+          t_start_ms?: number | null
+          value: string
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          field?: string
+          id?: string
+          quote?: string | null
+          state?: Database["public"]["Enums"]["commitment_state"]
+          t_end_ms?: number | null
+          t_start_ms?: number | null
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commitments_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalations: {
+        Row: {
+          brief: string
+          call_id: string
+          computation: Json
+          created_at: string
+          id: string
+          state: Database["public"]["Enums"]["escalation_state"]
+        }
+        Insert: {
+          brief: string
+          call_id: string
+          computation?: Json
+          created_at?: string
+          id?: string
+          state?: Database["public"]["Enums"]["escalation_state"]
+        }
+        Update: {
+          brief?: string
+          call_id?: string
+          computation?: Json
+          created_at?: string
+          id?: string
+          state?: Database["public"]["Enums"]["escalation_state"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalations_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mandates: {
+        Row: {
+          created_at: string
+          currency: string
+          id: string
+          max_amount: number
+          operation_id: string
+          pickup_window_end: string | null
+          pickup_window_start: string | null
+          target_amount: number
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          id?: string
+          max_amount: number
+          operation_id: string
+          pickup_window_end?: string | null
+          pickup_window_start?: string | null
+          target_amount: number
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          id?: string
+          max_amount?: number
+          operation_id?: string
+          pickup_window_end?: string | null
+          pickup_window_start?: string | null
+          target_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mandates_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operations: {
+        Row: {
+          container: string
+          created_at: string
+          demurrage_per_day: number
+          destination: string
+          free_time_ends: string
+          id: string
+          origin: string
+          ref: string
+        }
+        Insert: {
+          container: string
+          created_at?: string
+          demurrage_per_day?: number
+          destination: string
+          free_time_ends: string
+          id?: string
+          origin: string
+          ref: string
+        }
+        Update: {
+          container?: string
+          created_at?: string
+          demurrage_per_day?: number
+          destination?: string
+          free_time_ends?: string
+          id?: string
+          origin?: string
+          ref?: string
+        }
+        Relationships: []
+      }
+      policy_events: {
+        Row: {
+          ask: string
+          call_id: string
+          created_at: string
+          decision: Database["public"]["Enums"]["policy_decision"]
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          ask: string
+          call_id: string
+          created_at?: string
+          decision: Database["public"]["Enums"]["policy_decision"]
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          ask?: string
+          call_id?: string
+          created_at?: string
+          decision?: Database["public"]["Enums"]["policy_decision"]
+          id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_events_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      utterances: {
+        Row: {
+          call_id: string
+          created_at: string
+          id: string
+          interrupted: boolean
+          speaker: string
+          t_end_ms: number | null
+          t_start_ms: number | null
+          text: string
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          id?: string
+          interrupted?: boolean
+          speaker?: string
+          t_end_ms?: number | null
+          t_start_ms?: number | null
+          text: string
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          id?: string
+          interrupted?: boolean
+          speaker?: string
+          t_end_ms?: number | null
+          t_start_ms?: number | null
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "utterances_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +349,11 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      auction_state: "pending" | "running" | "settled" | "cancelled"
+      call_status: "dialing" | "live" | "escalated" | "done" | "released"
+      commitment_state: "proposed" | "anchored" | "void"
+      escalation_state: "open" | "approved" | "rejected"
+      policy_decision: "allow" | "deny" | "block" | "escalate"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +480,12 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      auction_state: ["pending", "running", "settled", "cancelled"],
+      call_status: ["dialing", "live", "escalated", "done", "released"],
+      commitment_state: ["proposed", "anchored", "void"],
+      escalation_state: ["open", "approved", "rejected"],
+      policy_decision: ["allow", "deny", "block", "escalate"],
+    },
   },
 } as const
