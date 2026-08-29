@@ -36,10 +36,12 @@ from app.db import db
 from app.evidence import anchor_recording
 from app.phase1_detected import router as phase1_router, start_clock
 from app.phase2_mandate import router as phase2_router
+from app.phase3_market import router as phase3_router
 
 app = FastAPI(title="Amarra")
 app.include_router(phase1_router)
 app.include_router(phase2_router)
+app.include_router(phase3_router)
 
 DIAL_SPACING_S = 1.2   # limite padrão da Twilio é 1 chamada/segundo
 

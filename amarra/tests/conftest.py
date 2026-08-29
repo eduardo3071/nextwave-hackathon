@@ -9,6 +9,12 @@ import os
 
 os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
 os.environ.setdefault("SUPABASE_SERVICE_KEY", "fake-service-key-for-tests")
+# twilio_voice.py lê estas no import; sem elas o módulo não carrega.
+os.environ.setdefault("TWILIO_ACCOUNT_SID", "ACfake0000000000000000000000000000")
+os.environ.setdefault("TWILIO_AUTH_TOKEN", "fake-twilio-token")
+os.environ.setdefault("TWILIO_PHONE_NUMBER", "+15555550100")
+os.environ.setdefault("PUBLIC_HOST", "test.ngrok.app")
+os.environ.setdefault("TWIML_APP_SID", "APfake0000000000000000000000000000")
 
 import pytest
 
@@ -41,6 +47,25 @@ def mandate() -> dict:
         "may_reveal_best_price": True,
         "may_reveal_competitor_name": False,
         "may_reveal_max_rate": False,
+    }
+
+
+@pytest.fixture
+def op_issued(op) -> dict:
+    """op depois da fase 2: já em 'mandate_issued'."""
+    return {**op, "phase": "mandate_issued"}
+
+
+@pytest.fixture
+def mandate_issued(mandate) -> dict:
+    """mandate depois da fase 2: com hash cunhado e artefatos compilados."""
+    return {
+        **mandate,
+        "mandate_hash": "mdt_test0123456789abcdef012345",
+        "ladder": [8200.0, 8400.0, 8600.0, 8800.0],
+        "break_even_rate": 10400.0,
+        "escalation_band": {"from": 9000.0, "to": 10400.0, "width": 1400.0,
+                            "meaning": "acima da autoridade, abaixo do prejuízo"},
     }
 
 
