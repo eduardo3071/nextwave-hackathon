@@ -35,6 +35,7 @@ from openai import AsyncOpenAI
 
 from app.auction import AUCTIONS
 from app.db import db
+from app.phase5_reserved import try_reserve
 from app.phases import Phase, PhaseError, advance
 from app.policy import (Decision, Mandate, NegotiationState,
                         evaluate_offer, gate_text)
@@ -285,18 +286,17 @@ class NegotiationSession:
             return {"spoken": True, "decision": "deny",
                     "instruction": "Rechazado. Sigue la conversación sin montos."}
 
-        # ── fechar exige o LOCK do leilão ──────────────────────────────────
+        # ── fechar exige o LOCK do leilão (fase 5, árbitro no banco) ───────
         if res.decision is Decision.ALLOW and res.reason == "at_or_below_target":
             if self.auction:
-                got = await self.auction.try_reserve(self.call_id, res.amount)
-                if not got:
+                r = await try_reserve(self.auction, self.call_id, res.amount,
+                                      "buy_it_now")
+                if not r.get("granted"):
                     # Outra chamada já fechou. Nunca prometemos o que não temos.
                     frase = "Déjame confirmar disponibilidad y te regreso la llamada."
                     self.state.approved_utterances.add(frase)
                     await self._say(frase, approved=True)
-                    return {"spoken": True,
-                            "instruction": "No confirmes nada. Cierra con cortesía."}
-                await self._on_reserved(res.amount)
+                    return {"spoken": True, "instruction": "No confirmes nada."}
 
         if res.amount is not None:
             self.state.offers_made.append(res.amount)

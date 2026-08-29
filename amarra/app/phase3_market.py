@@ -31,6 +31,7 @@ from twilio.base.exceptions import TwilioRestException
 from app import twilio_voice as tw
 from app.auction import AUCTIONS, Auction
 from app.db import db
+from app.phase5_reserved import run_stopping_rules
 from app.phases import Phase, PhaseError, advance
 
 router = APIRouter(prefix="/phase3", tags=["fase 3 · market_open"])
@@ -283,7 +284,7 @@ async def _dial_all(auction: Auction, op: dict, carriers: list[Carrier]) -> None
         return
 
     asyncio.create_task(_answer_watchdog(auction, op))
-    asyncio.create_task(auction.run_deadlines())
+    asyncio.create_task(run_stopping_rules(auction))
 
 
 async def _answer_watchdog(auction: Auction, op: dict) -> None:
