@@ -15,6 +15,7 @@ os.environ.setdefault("TWILIO_AUTH_TOKEN", "fake-twilio-token")
 os.environ.setdefault("TWILIO_PHONE_NUMBER", "+15555550100")
 os.environ.setdefault("PUBLIC_HOST", "test.ngrok.app")
 os.environ.setdefault("TWIML_APP_SID", "APfake0000000000000000000000000000")
+os.environ.setdefault("OPENAI_API_KEY", "sk-fake-openai-key-for-tests")
 
 import pytest
 
@@ -67,6 +68,46 @@ def mandate_issued(mandate) -> dict:
         "escalation_band": {"from": 9000.0, "to": 10400.0, "width": 1400.0,
                             "meaning": "acima da autoridade, abaixo do prejuízo"},
     }
+
+
+@pytest.fixture
+def state():
+    """Estado de negociação do caso: alvo 8000, teto 9000, 4 rodadas."""
+    from decimal import Decimal
+    from app.policy import Mandate, NegotiationState
+    return NegotiationState(mandate=Mandate(
+        target_rate=Decimal(8000),
+        max_rate=Decimal(9000),
+        min_rate=Decimal(6000),
+        max_rounds=4,
+        currency="MXN",
+    ))
+
+
+@pytest.fixture
+def band(mandate_issued) -> dict:
+    """A banda de escalação compilada pela fase 2."""
+    return mandate_issued["escalation_band"]
+
+
+@pytest.fixture
+def session(monkeypatch):
+    """
+    NegotiationSession barebones: bypass do __init__ (que exige DB e mandato
+    emitido) porque os testes só exercitam métodos sem I/O.
+    """
+    import time
+    from app import phase4_negotiating as p4
+
+    monkeypatch.setattr(p4.db, "insert", lambda *a, **k: None)
+
+    s = p4.NegotiationSession.__new__(p4.NegotiationSession)
+    s.call_id = "test-call"
+    s.history = []
+    s.actions = []
+    s.t0 = time.monotonic()
+    s.last_input_at = time.monotonic()
+    return s
 
 
 @pytest.fixture
