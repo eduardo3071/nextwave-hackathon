@@ -165,6 +165,13 @@ export type Database = {
             foreignKeyName: "auctions_operation_id_fkey"
             columns: ["operation_id"]
             isOneToOne: false
+            referencedRelation: "operation_progress"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auctions_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
             referencedRelation: "operations"
             referencedColumns: ["id"]
           },
@@ -318,6 +325,13 @@ export type Database = {
             foreignKeyName: "calls_operation_id_fkey"
             columns: ["operation_id"]
             isOneToOne: false
+            referencedRelation: "operation_progress"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calls_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
             referencedRelation: "operations"
             referencedColumns: ["id"]
           },
@@ -414,6 +428,13 @@ export type Database = {
             foreignKeyName: "commitments_operation_id_fkey"
             columns: ["operation_id"]
             isOneToOne: false
+            referencedRelation: "operation_progress"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commitments_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
             referencedRelation: "operations"
             referencedColumns: ["id"]
           },
@@ -467,6 +488,13 @@ export type Database = {
           timeline?: Json
         }
         Relationships: [
+          {
+            foreignKeyName: "dossiers_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: true
+            referencedRelation: "operation_progress"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "dossiers_operation_id_fkey"
             columns: ["operation_id"]
@@ -610,6 +638,13 @@ export type Database = {
             foreignKeyName: "mandates_operation_id_fkey"
             columns: ["operation_id"]
             isOneToOne: false
+            referencedRelation: "operation_progress"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mandates_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
             referencedRelation: "operations"
             referencedColumns: ["id"]
           },
@@ -743,6 +778,13 @@ export type Database = {
             foreignKeyName: "phase_events_operation_id_fkey"
             columns: ["operation_id"]
             isOneToOne: false
+            referencedRelation: "operation_progress"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phase_events_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
             referencedRelation: "operations"
             referencedColumns: ["id"]
           },
@@ -853,6 +895,13 @@ export type Database = {
             foreignKeyName: "read_backs_operation_id_fkey"
             columns: ["operation_id"]
             isOneToOne: false
+            referencedRelation: "operation_progress"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "read_backs_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
             referencedRelation: "operations"
             referencedColumns: ["id"]
           },
@@ -910,6 +959,13 @@ export type Database = {
             foreignKeyName: "recap_deliveries_operation_id_fkey"
             columns: ["operation_id"]
             isOneToOne: false
+            referencedRelation: "operation_progress"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recap_deliveries_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
             referencedRelation: "operations"
             referencedColumns: ["id"]
           },
@@ -961,10 +1017,67 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      operation_progress: {
+        Row: {
+          id: string | null
+          last_event_at: string | null
+          on_branch: boolean | null
+          phase: Database["public"]["Enums"]["phase_key"] | null
+          phase_since: string | null
+          ref: string | null
+          spine_step: number | null
+          steps_taken: number | null
+        }
+        Insert: {
+          id?: string | null
+          last_event_at?: never
+          on_branch?: never
+          phase?: Database["public"]["Enums"]["phase_key"] | null
+          phase_since?: string | null
+          ref?: string | null
+          spine_step?: never
+          steps_taken?: never
+        }
+        Update: {
+          id?: string | null
+          last_event_at?: never
+          on_branch?: never
+          phase?: Database["public"]["Enums"]["phase_key"] | null
+          phase_since?: string | null
+          ref?: string | null
+          spine_step?: never
+          steps_taken?: never
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      advance_phase: {
+        Args: {
+          p_auction_id?: string
+          p_call_id?: string
+          p_detail?: string
+          p_kind: string
+          p_operation_id: string
+          p_payload?: Json
+          p_phase: Database["public"]["Enums"]["phase_key"]
+          p_trigger: string
+        }
+        Returns: number
+      }
+      release_reservation: {
+        Args: { p_auction_id: string; p_reason: string }
+        Returns: Json
+      }
+      try_reserve_auction: {
+        Args: {
+          p_amount: number
+          p_auction_id: string
+          p_call_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       auction_state: "pending" | "running" | "settled" | "cancelled"
