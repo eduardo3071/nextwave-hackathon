@@ -11,7 +11,7 @@ function Option({
 }: {
   label: string;
   amount: number | undefined;
-  note?: string;
+  note?: string | undefined;
   tone: "good" | "bad";
 }) {
   return (
