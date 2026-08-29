@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      auction_quotes: {
+        Row: {
+          approved: number | null
+          auction_id: string
+          call_id: string | null
+          carrier_id: string
+          carrier_name: string | null
+          created_at: string | null
+          final_ask: number | null
+          id: number
+          quote_ms: number | null
+          reason: string
+          rounds: number
+          winner: boolean
+        }
+        Insert: {
+          approved?: number | null
+          auction_id: string
+          call_id?: string | null
+          carrier_id: string
+          carrier_name?: string | null
+          created_at?: string | null
+          final_ask?: number | null
+          id?: number
+          quote_ms?: number | null
+          reason: string
+          rounds?: number
+          winner?: boolean
+        }
+        Update: {
+          approved?: number | null
+          auction_id?: string
+          call_id?: string | null
+          carrier_id?: string
+          carrier_name?: string | null
+          created_at?: string | null
+          final_ask?: number | null
+          id?: number
+          quote_ms?: number | null
+          reason?: string
+          rounds?: number
+          winner?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auction_quotes_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "auctions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auction_quotes_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auctions: {
         Row: {
           admission_warnings: Json | null
@@ -112,6 +172,44 @@ export type Database = {
             foreignKeyName: "auctions_winner_call_fk"
             columns: ["winner_call_id"]
             isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_briefs: {
+        Row: {
+          actions: Json
+          call_id: string
+          created_at: string | null
+          mentions: Json
+          outcome: string | null
+          recap_sent_at: string | null
+          recap_sent_to: string | null
+        }
+        Insert: {
+          actions?: Json
+          call_id: string
+          created_at?: string | null
+          mentions?: Json
+          outcome?: string | null
+          recap_sent_at?: string | null
+          recap_sent_to?: string | null
+        }
+        Update: {
+          actions?: Json
+          call_id?: string
+          created_at?: string | null
+          mentions?: Json
+          outcome?: string | null
+          recap_sent_at?: string | null
+          recap_sent_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_briefs_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: true
             referencedRelation: "calls"
             referencedColumns: ["id"]
           },
@@ -328,6 +426,56 @@ export type Database = {
           },
         ]
       }
+      dossiers: {
+        Row: {
+          commitments: Json
+          comparison: Json
+          created_at: string | null
+          escalations: Json
+          financial: Json
+          headline: string | null
+          mandate_hash: string | null
+          operation_id: string
+          operational: Json
+          outcome: string
+          timeline: Json
+        }
+        Insert: {
+          commitments?: Json
+          comparison?: Json
+          created_at?: string | null
+          escalations?: Json
+          financial?: Json
+          headline?: string | null
+          mandate_hash?: string | null
+          operation_id: string
+          operational?: Json
+          outcome: string
+          timeline?: Json
+        }
+        Update: {
+          commitments?: Json
+          comparison?: Json
+          created_at?: string | null
+          escalations?: Json
+          financial?: Json
+          headline?: string | null
+          mandate_hash?: string | null
+          operation_id?: string
+          operational?: Json
+          outcome?: string
+          timeline?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossiers_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: true
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       escalations: {
         Row: {
           brief: string
@@ -533,6 +681,73 @@ export type Database = {
         }
         Relationships: []
       }
+      phase_events: {
+        Row: {
+          auction_id: string | null
+          call_id: string | null
+          created_at: string | null
+          detail: string | null
+          id: number
+          kind: string
+          ms_in_previous: number | null
+          operation_id: string
+          payload: Json | null
+          phase: Database["public"]["Enums"]["phase_key"]
+          previous: Database["public"]["Enums"]["phase_key"] | null
+          trigger: string
+        }
+        Insert: {
+          auction_id?: string | null
+          call_id?: string | null
+          created_at?: string | null
+          detail?: string | null
+          id?: number
+          kind: string
+          ms_in_previous?: number | null
+          operation_id: string
+          payload?: Json | null
+          phase: Database["public"]["Enums"]["phase_key"]
+          previous?: Database["public"]["Enums"]["phase_key"] | null
+          trigger: string
+        }
+        Update: {
+          auction_id?: string | null
+          call_id?: string | null
+          created_at?: string | null
+          detail?: string | null
+          id?: number
+          kind?: string
+          ms_in_previous?: number | null
+          operation_id?: string
+          payload?: Json | null
+          phase?: Database["public"]["Enums"]["phase_key"]
+          previous?: Database["public"]["Enums"]["phase_key"] | null
+          trigger?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phase_events_auction_id_fkey"
+            columns: ["auction_id"]
+            isOneToOne: false
+            referencedRelation: "auctions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phase_events_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phase_events_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       policy_events: {
         Row: {
           amount: number | null
@@ -579,6 +794,123 @@ export type Database = {
             columns: ["call_id"]
             isOneToOne: false
             referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      read_backs: {
+        Row: {
+          attempt: number
+          call_id: string
+          created_at: string | null
+          id: number
+          operation_id: string
+          outcome: string | null
+          response_text: string | null
+          slots: Json
+          spoken_text: string
+          t_response_ms: number | null
+          t_spoken_ms: number | null
+          token: string
+        }
+        Insert: {
+          attempt?: number
+          call_id: string
+          created_at?: string | null
+          id?: number
+          operation_id: string
+          outcome?: string | null
+          response_text?: string | null
+          slots: Json
+          spoken_text: string
+          t_response_ms?: number | null
+          t_spoken_ms?: number | null
+          token: string
+        }
+        Update: {
+          attempt?: number
+          call_id?: string
+          created_at?: string | null
+          id?: number
+          operation_id?: string
+          outcome?: string | null
+          response_text?: string | null
+          slots?: Json
+          spoken_text?: string
+          t_response_ms?: number | null
+          t_spoken_ms?: number | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "read_backs_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "read_backs_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recap_deliveries: {
+        Row: {
+          body: string
+          call_id: string | null
+          channel: string
+          created_at: string | null
+          error: string | null
+          id: number
+          operation_id: string
+          provider_id: string | null
+          status: string
+          subject: string | null
+          target: string
+        }
+        Insert: {
+          body: string
+          call_id?: string | null
+          channel: string
+          created_at?: string | null
+          error?: string | null
+          id?: number
+          operation_id: string
+          provider_id?: string | null
+          status?: string
+          subject?: string | null
+          target: string
+        }
+        Update: {
+          body?: string
+          call_id?: string | null
+          channel?: string
+          created_at?: string | null
+          error?: string | null
+          id?: number
+          operation_id?: string
+          provider_id?: string | null
+          status?: string
+          subject?: string | null
+          target?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recap_deliveries_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recap_deliveries_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operations"
             referencedColumns: ["id"]
           },
         ]
