@@ -363,6 +363,7 @@ export type Database = {
         | "void"
         | "read_back"
         | "confirmed"
+        | "in_execution"
       escalation_state: "open" | "approved" | "rejected"
       policy_decision: "allow" | "deny" | "block" | "escalate"
     }
@@ -507,6 +508,7 @@ export const Constants = {
         "void",
         "read_back",
         "confirmed",
+        "in_execution",
       ],
       escalation_state: ["open", "approved", "rejected"],
       policy_decision: ["allow", "deny", "block", "escalate"],
