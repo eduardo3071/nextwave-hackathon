@@ -40,6 +40,7 @@ from app.phase4_negotiating import router as phase4_router
 from app.phase5_reserved import router as phase5_router
 from app.phase6_committed import router as phase6_router
 from app.phase7_verified import router as phase7_router, verify_call
+from app.phase8_closed import router as phase8_router
 
 app = FastAPI(title="Amarra")
 app.include_router(phase1_router)
@@ -51,6 +52,7 @@ app.include_router(phase4_router)
 app.include_router(phase5_router)
 app.include_router(phase6_router)
 app.include_router(phase7_router)
+app.include_router(phase8_router)
 
 DIAL_SPACING_S = 1.2   # limite padrão da Twilio é 1 chamada/segundo
 
