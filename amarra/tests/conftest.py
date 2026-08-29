@@ -215,6 +215,15 @@ def auction(monkeypatch):
 
 
 @pytest.fixture
+def slots() -> dict:
+    """Slots do caso: valor 8.400 e coleta na quinta 10:00 (Manzanillo)."""
+    return {
+        "rate": {"value": "8400", "quote": "ocho mil cuatrocientos"},
+        "pickup_at": {"value": "2026-09-03T10:00:00-06:00", "quote": "jueves diez"},
+    }
+
+
+@pytest.fixture
 def discharge_payload() -> dict:
     """O evento do caso Manzanillo, alinhado ao discharge_manzanillo.json."""
     return {

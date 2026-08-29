@@ -36,6 +36,7 @@ from openai import AsyncOpenAI
 from app.auction import AUCTIONS
 from app.db import db
 from app.phase5_reserved import try_reserve
+from app.phase6_committed import ReadBack
 from app.phases import Phase, PhaseError, advance
 from app.policy import (Decision, Mandate, NegotiationState,
                         evaluate_offer, gate_text)
@@ -161,6 +162,9 @@ class NegotiationSession:
         self.history: list[dict] = [
             {"role": "system", "content": system_prompt(self.op, m)}]
 
+        # fase 6: protocolo de read-back. Fica ocioso até a reserva ser tomada.
+        self.read_back = ReadBack(self)
+
     def _ms(self) -> int:
         return int((time.monotonic() - self.t0) * 1000)
 
@@ -193,6 +197,13 @@ class NegotiationSession:
 
         if self.escalated or self.closed:
             return   # humano assumiu, ou a chamada acabou: o agente cala
+
+        # fase 6: se um read-back está aguardando resposta, o protocolo responde.
+        # O modelo não entra. Silêncio, hedge e "sim, mas..." nunca viram commit.
+        if self.read_back.active:
+            outcome = await self.read_back.handle_response(text)
+            if outcome in ("confirmed", "retry", "escalated"):
+                return
 
         r = await llm.chat.completions.create(
             model=MODEL, messages=self.history, tools=TOOLS, temperature=0.3)
@@ -287,6 +298,7 @@ class NegotiationSession:
                     "instruction": "Rechazado. Sigue la conversación sin montos."}
 
         # ── fechar exige o LOCK do leilão (fase 5, árbitro no banco) ───────
+        reservou_agora = False
         if res.decision is Decision.ALLOW and res.reason == "at_or_below_target":
             if self.auction:
                 r = await try_reserve(self.auction, self.call_id, res.amount,
@@ -297,6 +309,7 @@ class NegotiationSession:
                     self.state.approved_utterances.add(frase)
                     await self._say(frase, approved=True)
                     return {"spoken": True, "instruction": "No confirmes nada."}
+                reservou_agora = True
 
         if res.amount is not None:
             self.state.offers_made.append(res.amount)
@@ -304,6 +317,13 @@ class NegotiationSession:
         # camada 2: a frase aprovada vai direto para o áudio
         self.state.approved_utterances.add(res.utterance)
         await self._say(res.utterance, approved=True)
+
+        # fase 6: com o lock na mão, começa o read-back antes de comprometer
+        if reservou_agora:
+            await self.read_back.start()
+            return {"spoken": True, "decision": res.decision.value,
+                    "instruction": "Read-back en curso. Espera un sí explícito."}
+
         return {"spoken": True, "decision": res.decision.value,
                 "instruction": "Ya lo dije en voz alta. Sigue SIN repetir montos."}
 

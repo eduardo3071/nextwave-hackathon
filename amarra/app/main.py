@@ -39,6 +39,7 @@ from app.phase2_mandate import router as phase2_router
 from app.phase3_market import router as phase3_router
 from app.phase4_negotiating import router as phase4_router
 from app.phase5_reserved import router as phase5_router
+from app.phase6_committed import router as phase6_router
 
 app = FastAPI(title="Amarra")
 app.include_router(phase1_router)
@@ -48,6 +49,7 @@ app.include_router(phase3_router)
 # primeira rota que casa, então NegotiationSession assume no lugar da AgentSession.
 app.include_router(phase4_router)
 app.include_router(phase5_router)
+app.include_router(phase6_router)
 
 DIAL_SPACING_S = 1.2   # limite padrão da Twilio é 1 chamada/segundo
 
