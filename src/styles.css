@@ -219,3 +219,23 @@
   animation: amarra-sweep 0.6s ease-out;
 }
 
+/* Steady breathing pulse for the current phase / a live leg / an open decision. */
+@keyframes amarra-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@utility phase-pulse {
+  animation: amarra-breathe 1.2s ease-in-out infinite;
+}
+
+@utility row-in {
+  animation: amarra-in 0.22s ease-out both;
+}
+
+
