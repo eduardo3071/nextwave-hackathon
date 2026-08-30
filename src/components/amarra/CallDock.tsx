@@ -60,8 +60,9 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
   const bootstrapped = useRef(false);
 
   const inbound = useMemo(() => {
-    const rows = calls.filter((c) => c.direction === "inbound");
-    const live = rows.filter((c) => ACTIVE.has(String(c.status)));
+    const live = calls.filter(
+      (c) => c.direction === "inbound" && ACTIVE.has(String(c.status)) && fresh(c),
+    );
     return live.length ? live[live.length - 1] : null;
   }, [calls]);
 
