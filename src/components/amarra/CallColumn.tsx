@@ -70,23 +70,23 @@ export function CallColumn({
           </span>
         </div>
         <div className="num flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-          <span>{call.phone ?? "sem número"}</span>
+          <span>{call.phone ?? "no number"}</span>
           <span>{call.leg_role ?? "counterparty"}</span>
           <span>{call.language ?? "—"}</span>
-          <span>tentativa {call.dial_attempt ?? 1}</span>
-          {call.answered_at && <span>atendida {timeOfDay(call.answered_at)}</span>}
-          {lastRound > 0 && <span>rodada {lastRound}</span>}
-          {call.transcript_words != null && <span>{num(call.transcript_words)} palavras</span>}
-          {isWinner && <span className="font-bold text-live">VENCEDORA</span>}
+          <span>attempt {call.dial_attempt ?? 1}</span>
+          {call.answered_at && <span>answered {timeOfDay(call.answered_at)}</span>}
+          {lastRound > 0 && <span>round {lastRound}</span>}
+          {call.transcript_words != null && <span>{num(call.transcript_words)} words</span>}
+          {isWinner && <span className="font-bold text-live">WINNER</span>}
         </div>
         {call.dial_error && (
-          <div className="num mt-1 text-xs text-danger">erro de discagem: {call.dial_error}</div>
+          <div className="num mt-1 text-xs text-danger">dial error: {call.dial_error}</div>
         )}
       </div>
 
       <div ref={scroller} className="min-h-[12rem] flex-1 overflow-y-auto px-3 py-2">
         {utterances.length === 0 ? (
-          <div className="num text-sm text-muted-foreground">sem fala ainda</div>
+          <div className="num text-sm text-muted-foreground">nothing said yet</div>
         ) : (
           <ul className="space-y-1.5">
             {utterances.map((u) => (
@@ -98,7 +98,7 @@ export function CallColumn({
                   {u.speaker}
                 </span>
                 <span className={u.interrupted ? "italic opacity-70" : ""}>{u.text}</span>
-                {u.interrupted && <span className="num ml-1 text-xs text-warn">[cortado]</span>}
+                {u.interrupted && <span className="num ml-1 text-xs text-warn">[cut off]</span>}
               </li>
             ))}
           </ul>
@@ -120,7 +120,7 @@ export function CallColumn({
                       : "text-warn"
                 }
               >
-                {r.outcome ?? "aguardando"}
+                {r.outcome ?? "awaiting"}
               </span>{" "}
               <span className="text-muted-foreground">{r.token}</span>
             </div>
@@ -131,7 +131,7 @@ export function CallColumn({
       <div className="border-t border-border px-3 py-2">
         <div className="label-caps">policy strip</div>
         {policyEvents.length === 0 ? (
-          <div className="num text-xs text-muted-foreground">nenhuma decisão ainda</div>
+          <div className="num text-xs text-muted-foreground">no decision yet</div>
         ) : (
           <div className="flex flex-wrap gap-1">
             {policyEvents.slice(-8).map((p) => (
@@ -149,7 +149,7 @@ export function CallColumn({
         {lastPolicy && (
           <div className="num mt-1 text-xs text-muted-foreground">
             {lastPolicy.reason ?? "—"}
-            {lastPolicy.amount != null && ` → autorizado ${money(lastPolicy.amount, currency)}`}
+            {lastPolicy.amount != null && ` → authorized ${money(lastPolicy.amount, currency)}`}
           </div>
         )}
       </div>

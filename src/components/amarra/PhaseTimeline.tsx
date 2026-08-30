@@ -18,7 +18,7 @@ export function PhaseTimeline({ events }: { events: PhaseEvent[] }) {
       </div>
       {rows.length === 0 ? (
         <div className="num px-3 py-4 text-sm text-muted-foreground">
-          nenhuma transição registrada
+          no transition recorded
         </div>
       ) : (
         <ul className="max-h-[22rem] divide-y divide-border overflow-y-auto">
@@ -40,7 +40,7 @@ export function PhaseTimeline({ events }: { events: PhaseEvent[] }) {
                 {e.detail && <div className="text-xs leading-snug">{e.detail}</div>}
                 {e.ms_in_previous != null && (
                   <div className="num text-[0.7rem] text-muted-foreground">
-                    {e.previous ?? "—"} durou {held(e.ms_in_previous)}
+                    {e.previous ?? "—"} lasted {held(e.ms_in_previous)}
                   </div>
                 )}
               </li>

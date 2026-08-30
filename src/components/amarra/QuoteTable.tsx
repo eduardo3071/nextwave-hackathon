@@ -23,12 +23,12 @@ export function QuoteTable({
   return (
     <section className="panel rounded-md">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="label-caps">comparação de cotações · auditável</div>
+        <div className="label-caps">quote comparison · auditable</div>
         <div className="num flex flex-wrap gap-x-3 text-xs text-muted-foreground">
           {auction && <span>status: {auction.status}</span>}
           {auction?.legs_planned != null && (
             <span>
-              pernas: {auction.legs_planned}
+              legs: {auction.legs_planned}
               {auction.legs_budget != null ? `/${auction.legs_budget}` : ""}
             </span>
           )}
@@ -36,7 +36,7 @@ export function QuoteTable({
           {auction?.hard_deadline_s != null && <span>hard {auction.hard_deadline_s}s</span>}
           {auction?.reserve_amount != null && (
             <span className="font-bold text-live">
-              reserva {money(auction.reserve_amount, currency)}
+              reserve {money(auction.reserve_amount, currency)}
             </span>
           )}
         </div>
@@ -44,24 +44,24 @@ export function QuoteTable({
 
       {auction?.admission_warnings?.length ? (
         <div className="num border-b border-warn/40 bg-warn/10 px-3 py-1 text-xs text-warn">
-          admissão: {auction.admission_warnings.join(" · ")}
+          admission: {auction.admission_warnings.join(" · ")}
         </div>
       ) : null}
 
       {sorted.length === 0 ? (
         <div className="num px-3 py-4 text-sm text-muted-foreground">
-          a tabela se preenche à medida que as cotações chegam
+          the table fills in as quotes arrive
         </div>
       ) : (
         <table className="w-full text-sm">
           <thead>
             <tr className="label-caps border-b border-border text-left">
-              <th className="px-3 py-1.5">transportadora</th>
-              <th className="px-3 py-1.5 text-right">pediu</th>
-              <th className="px-3 py-1.5 text-right">aprovado</th>
-              <th className="px-3 py-1.5 text-right">rodadas</th>
-              <th className="px-3 py-1.5 text-right">tempo</th>
-              <th className="px-3 py-1.5">razão</th>
+              <th className="px-3 py-1.5">carrier</th>
+              <th className="px-3 py-1.5 text-right">asked</th>
+              <th className="px-3 py-1.5 text-right">approved</th>
+              <th className="px-3 py-1.5 text-right">rounds</th>
+              <th className="px-3 py-1.5 text-right">time</th>
+              <th className="px-3 py-1.5">reason</th>
             </tr>
           </thead>
           <tbody>
@@ -93,7 +93,7 @@ export function QuoteTable({
 
       {auction?.decision_reason && (
         <div className="num border-t border-border px-3 py-1.5 text-xs text-muted-foreground">
-          decisão: {auction.decision_reason}
+          decision: {auction.decision_reason}
         </div>
       )}
     </section>

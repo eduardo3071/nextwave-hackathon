@@ -85,11 +85,11 @@ export function CommitmentsList({ commitments }: { commitments: Commitment[] }) 
   return (
     <section className="panel rounded-md">
       <div className="border-b border-border px-3 py-2">
-        <div className="label-caps">compromissos · ancorados no áudio</div>
+        <div className="label-caps">commitments · anchored in audio</div>
       </div>
       {commitments.length === 0 ? (
         <div className="num px-3 py-4 text-sm text-muted-foreground">
-          nenhum compromisso ainda — sem âncora no áudio, o campo não entra
+          no commitments yet — without an audio anchor, the field never lands
         </div>
       ) : (
         <ul className="divide-y divide-border">
@@ -139,7 +139,7 @@ export function CommitmentsList({ commitments }: { commitments: Commitment[] }) 
                       type="button"
                       disabled={!main}
                       onClick={() => (playing === id ? stop() : main && play(id, main))}
-                      title={main ? "tocar o trecho exato" : "sem áncora de áudio"}
+                      title={main ? "play the exact slice" : "no audio anchor"}
                       className={`num rounded border-2 px-2.5 py-1 text-sm font-bold ${
                         main
                           ? playing === id
@@ -148,7 +148,7 @@ export function CommitmentsList({ commitments }: { commitments: Commitment[] }) 
                           : "cursor-not-allowed border-border text-muted-foreground"
                       }`}
                     >
-                      {playing === id ? "■" : "▶"} trecho
+                      {playing === id ? "■" : "▶"} slice
                     </button>
                     {affirm && (
                       <button
@@ -162,7 +162,7 @@ export function CommitmentsList({ commitments }: { commitments: Commitment[] }) 
                             : "border-accent text-accent hover:bg-accent/15"
                         }`}
                       >
-                        ▶ “sim”
+                        ▶ “yes”
                       </button>
                     )}
                   </div>

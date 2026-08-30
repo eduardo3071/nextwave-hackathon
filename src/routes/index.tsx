@@ -23,17 +23,17 @@ import { backendUrl } from "@/lib/backend";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Amarra · sala de controle de negociação de frete" },
+      { title: "Amarra · freight negotiation control room" },
       {
         name: "description",
         content:
-          "Painel ao vivo do agente de voz Amarra: mandato, leilão em paralelo, decisões de política e compromissos ancorados no áudio.",
+          "Live control room for the Amarra voice agent: mandate, parallel auction, policy decisions and audio-anchored commitments.",
       },
-      { property: "og:title", content: "Amarra · sala de controle" },
+      { property: "og:title", content: "Amarra · control room" },
       {
         property: "og:description",
         content:
-          "Negociação de frete por telefone com compromissos ancorados no áudio e uma única decisão para o humano.",
+          "Freight negotiation over the phone with audio-anchored commitments and exactly one decision for the human.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -112,32 +112,32 @@ function DossierModal({ dossier, onClose }: { dossier: Dossier; onClose: () => v
       <div className="w-full max-w-4xl space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="label-caps">dossiê da operação</div>
+            <div className="label-caps">operation dossier</div>
             <h2 className="text-2xl font-bold text-live">
               {dossier.headline ?? dossier.outcome}
             </h2>
           </div>
           <Btn onClick={onClose} tone="danger">
-            fechar
+            close
           </Btn>
         </div>
-        {block("financeiro", dossier.financial)}
-        {block("operacional", dossier.operational)}
-        {block("compromissos", dossier.commitments)}
-        {block("comparação", dossier.comparison)}
-        {block("escalações", dossier.escalations)}
+        {block("financial", dossier.financial)}
+        {block("operational", dossier.operational)}
+        {block("commitments", dossier.commitments)}
+        {block("comparison", dossier.comparison)}
+        {block("escalations", dossier.escalations)}
         {block("timeline", dossier.timeline)}
       </div>
     </div>
   );
 }
 
-const MOBILE_TABS = ["transcript", "compromissos", "comparação", "escalação"] as const;
+const MOBILE_TABS = ["transcript", "commitments", "comparison", "escalation"] as const;
 const TAB_LABEL: Record<(typeof MOBILE_TABS)[number], string> = {
-  transcript: "linha",
-  compromissos: "acordos",
-  "comparação": "leilão",
-  "escalação": "decisão",
+  transcript: "line",
+  commitments: "deals",
+  comparison: "auction",
+  escalation: "decision",
 };
 type MobileTab = (typeof MOBILE_TABS)[number];
 
@@ -200,7 +200,7 @@ function Dashboard() {
           <MobilePhaseStrip
             operation={operation}
             phaseEvents={phaseEvents}
-            onOpenEscalation={() => setTab("escalação")}
+            onOpenEscalation={() => setTab("escalation")}
           />
 
           <CallDock calls={calls} big={!operation} />
@@ -209,9 +209,9 @@ function Dashboard() {
           {!operation ? (
             <section className="rounded-2xl border border-border bg-card/60 px-5 py-12 text-center">
               <div className="text-3xl">📦</div>
-              <div className="mt-3 text-base font-bold">Nenhuma operação viva</div>
+              <div className="mt-3 text-base font-bold">No live operation</div>
               <div className="num mt-1 text-xs text-muted-foreground">
-                a sala acende sozinha quando o backend escreve a primeira linha
+                the room lights up on its own when the backend writes the first row
               </div>
             </section>
           ) : (
@@ -237,7 +237,7 @@ function Dashboard() {
                 {tab === "transcript" &&
                   (counterpartyCalls.length === 0 ? (
                     <div className="panel num rounded-md px-3 py-6 text-sm text-muted-foreground">
-                      as colunas aparecem quando o leilão disca — uma por perna
+                      columns appear when the auction dials — one per leg
                     </div>
                   ) : (
                     counterpartyCalls.map((c) => (
@@ -252,7 +252,7 @@ function Dashboard() {
                       />
                     ))
                   ))}
-                {tab === "compromissos" && (
+                {tab === "commitments" && (
                   <>
                     <CommitmentsList commitments={commitments} />
                     <RecapCard
@@ -262,10 +262,10 @@ function Dashboard() {
                     />
                   </>
                 )}
-                {tab === "comparação" && (
+                {tab === "comparison" && (
                   <QuoteTable quotes={quotes} auction={auction} currency={currency} />
                 )}
-                {tab === "escalação" && (
+                {tab === "escalation" && (
                   <>
                     <EscalationPanel
                       escalations={escalations}
@@ -327,7 +327,7 @@ function Dashboard() {
           <section className="grid gap-3 lg:grid-cols-3">
             {counterpartyCalls.length === 0 ? (
               <div className="panel num rounded-md px-3 py-6 text-sm text-muted-foreground lg:col-span-3">
-                as colunas aparecem quando o leilão disca — uma por perna
+                columns appear when the auction dials — one per leg
               </div>
             ) : (
               counterpartyCalls.map((c) => (
@@ -346,7 +346,7 @@ function Dashboard() {
 
           {otherLegs.length > 0 && (
             <section className="panel num rounded-md px-3 py-2 text-xs">
-              <span className="label-caps mr-2">outras pernas na conferência</span>
+              <span className="label-caps mr-2">other legs in the conference</span>
               {otherLegs.map((c) => (
                 <span key={c.id} className="mr-3">
                   {c.leg_role}: {c.phone ?? c.carrier_name ?? c.id.slice(0, 8)} · {c.status}
@@ -376,16 +376,16 @@ function Dashboard() {
           />
           {auction && (
             <section className="panel num rounded-md px-3 py-2 text-xs">
-              <div className="label-caps">leilão</div>
+              <div className="label-caps">auction</div>
               <div>status: {auction.status}</div>
               {auction.reserved_by && (
-                <div className="text-live">reservado por {auction.reserved_by.slice(0, 8)}</div>
+                <div className="text-live">reserved by {auction.reserved_by.slice(0, 8)}</div>
               )}
               {auction.reserve_amount != null && (
-                <div>reserva: {money(auction.reserve_amount, currency)}</div>
+                <div>reserve: {money(auction.reserve_amount, currency)}</div>
               )}
               {auction.release_reason && <div className="text-warn">{auction.release_reason}</div>}
-              <div>cotações: {num(quotes.length)}</div>
+              <div>quotes: {num(quotes.length)}</div>
             </section>
           )}
         </aside>
@@ -396,24 +396,24 @@ function Dashboard() {
       <footer className="sticky bottom-0 z-30 border-t border-border bg-background/97 px-5 py-3 backdrop-blur">
         {!backendUrl && (
           <div className="num mb-2 text-xs text-danger">
-            VITE_BACKEND_URL não configurado — os botões de ação ficam sem destino
+            VITE_BACKEND_URL not configured — action buttons have nowhere to POST
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="label-caps mr-1">fase atual: {phase ?? "—"}</span>
+          <span className="label-caps mr-1">current phase: {phase ?? "—"}</span>
 
           {phase === "detected" && operation && (
             <Btn
               tone="live"
-              onClick={run(`/phase2/issue/${operation.id}`, undefined, "Mandato emitido")}
+              onClick={run(`/phase2/issue/${operation.id}`, undefined, "Mandate issued")}
             >
-              emitir mandato
+              issue mandate
             </Btn>
           )}
 
           {phase === "mandate_issued" && operation && (
             <Btn tone="accent" onClick={() => setShowCarriers((v) => !v)}>
-              transportadoras
+              carriers
             </Btn>
           )}
 
@@ -421,49 +421,49 @@ function Dashboard() {
           {(phase === "market_open" || phase === "negotiating") && auction && (
             <Btn
               tone="warn"
-              onClick={run(`/phase3/abort/${auction.id}`, undefined, "Leilão abortado")}
+              onClick={run(`/phase3/abort/${auction.id}`, undefined, "Auction aborted")}
             >
-              abortar leilão
+              abort auction
             </Btn>
           )}
 
           {phase === "reserved" && auction && (
             <Btn
               tone="warn"
-              onClick={run(`/phase5/release/${auction.id}`, undefined, "Reserva devolvida")}
+              onClick={run(`/phase5/release/${auction.id}`, undefined, "Reservation released")}
             >
-              devolver reserva
+              release reservation
             </Btn>
           )}
 
           {phase === "verified" && operation && (
             <Btn
               tone="live"
-              onClick={run(`/phase8/close/${operation.id}`, undefined, "Operação encerrada")}
+              onClick={run(`/phase8/close/${operation.id}`, undefined, "Operation closed")}
             >
-              encerrar
+              close
             </Btn>
           )}
 
           {operation && phase !== "closed" && phase !== "failed" && (
             <Btn
               tone="danger"
-              onClick={run(`/phase8/fail/${operation.id}`, undefined, "Operação marcada como falha")}
+              onClick={run(`/phase8/fail/${operation.id}`, undefined, "Operation marked as failed")}
             >
-              falhar manualmente
+              fail manually
             </Btn>
           )}
 
           {operation && (phase === "closed" || phase === "failed") && (
             <Btn
               tone="accent"
-              onClick={run(`/phase8/reopen/${operation.id}`, undefined, "Operação reaberta")}
+              onClick={run(`/phase8/reopen/${operation.id}`, undefined, "Operation reopened")}
             >
-              reabrir
+              reopen
             </Btn>
           )}
 
-          {!state.ready && <span className="num text-xs text-muted-foreground">conectando…</span>}
+          {!state.ready && <span className="num text-xs text-muted-foreground">connecting…</span>}
         </div>
 
         {showCarriers && (
@@ -487,7 +487,7 @@ function Dashboard() {
               tone="accent"
               onClick={() => update([...carriers, { id: "", name: "", phone: "" }])}
             >
-              + perna
+              + leg
             </Btn>
           </div>
         )}

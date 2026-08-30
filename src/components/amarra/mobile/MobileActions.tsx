@@ -34,44 +34,44 @@ export function MobileActions({
   const actions: Action[] = [];
   if (operation && phase === "detected")
     actions.push({
-      label: "emitir mandato",
+      label: "issue mandate",
       path: `/phase2/issue/${operation.id}`,
-      ok: "Mandato emitido",
+      ok: "Mandate issued",
       tone: "live",
     });
   if (auction && (phase === "market_open" || phase === "negotiating"))
     actions.push({
-      label: "abortar leilão",
+      label: "abort auction",
       path: `/phase3/abort/${auction.id}`,
-      ok: "Leilão abortado",
+      ok: "Auction aborted",
       tone: "warn",
     });
   if (auction && phase === "reserved")
     actions.push({
-      label: "devolver reserva",
+      label: "release reservation",
       path: `/phase5/release/${auction.id}`,
-      ok: "Reserva devolvida",
+      ok: "Reservation released",
       tone: "warn",
     });
   if (operation && phase === "verified")
     actions.push({
-      label: "encerrar operação",
+      label: "close operation",
       path: `/phase8/close/${operation.id}`,
-      ok: "Operação encerrada",
+      ok: "Operation closed",
       tone: "live",
     });
   if (operation && (phase === "closed" || phase === "failed"))
     actions.push({
-      label: "reabrir",
+      label: "reopen",
       path: `/phase8/reopen/${operation.id}`,
-      ok: "Operação reaberta",
+      ok: "Operation reopened",
       tone: "accent",
     });
   if (operation && phase !== "closed" && phase !== "failed")
     actions.push({
-      label: "falhar manualmente",
+      label: "fail manually",
       path: `/phase8/fail/${operation.id}`,
-      ok: "Operação marcada como falha",
+      ok: "Operation marked as failed",
       tone: "danger",
     });
 
@@ -92,7 +92,7 @@ export function MobileActions({
             </button>
           ) : (
             <div className="num min-h-[52px] flex-1 rounded-full border border-border bg-card/60 px-4 text-center text-xs leading-[52px] text-muted-foreground">
-              {ready ? `fase ${phase ?? "—"} · nada a decidir` : "conectando…"}
+              {ready ? `phase ${phase ?? "—"} · nothing to decide` : "connecting…"}
             </div>
           )}
           {rest.length > 0 && (
@@ -101,7 +101,7 @@ export function MobileActions({
               onClick={() => setSheet(true)}
               className="num min-h-[52px] shrink-0 rounded-full border border-border px-4 text-xs font-bold text-muted-foreground uppercase"
             >
-              mais
+              more
             </button>
           )}
         </div>
@@ -109,7 +109,7 @@ export function MobileActions({
 
       {sheet && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end bg-background/70">
-          <button type="button" aria-label="fechar" className="flex-1" onClick={() => setSheet(false)} />
+          <button type="button" aria-label="close" className="flex-1" onClick={() => setSheet(false)} />
           <div className="rounded-t-3xl border-t border-border bg-card px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
             <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-border" />
             <div className="space-y-2">

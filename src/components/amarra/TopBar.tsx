@@ -40,30 +40,30 @@ function Countdown({ operation }: { operation: Operation }) {
 
   const spare =
     frozen && remaining != null && remaining > 0
-      ? `${Math.floor(remaining / 3_600_000)}h de folga`
+      ? `${Math.floor(remaining / 3_600_000)}h spare`
       : null;
 
   return (
     <div className="flex flex-col items-center">
       <span className="label-caps">
         {frozen
-          ? `encerrada · ${operation.clock_state}`
+          ? `closed · ${operation.clock_state}`
           : remaining != null && remaining < 0
-            ? "demurrage correndo"
-            : "free time restante"}
+            ? "demurrage running"
+            : "free time left"}
       </span>
       <span className={`num text-6xl leading-none font-bold xl:text-8xl ${tone}`} aria-live="polite">
         {remaining == null ? "--:--:--" : clockLabel(remaining)}
       </span>
       {spare ? (
-        <span className="num mt-1 text-lg font-bold text-live">fechada com {spare}</span>
+        <span className="num mt-1 text-lg font-bold text-live">closed with {spare}</span>
       ) : (
         <span className="num mt-1 text-base text-foreground">
-          após esse prazo:{" "}
+          after that:{" "}
           <span className="font-bold text-danger">
             {money(operation.demurrage_per_day, currency)}/dia
           </span>{" "}
-          de demurrage
+          of demurrage
         </span>
       )}
     </div>
@@ -136,16 +136,16 @@ export function TopBar({
     <header className="sticky top-0 z-40 border-b border-border bg-background/97 backdrop-blur">
       <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3">
         <div className="min-w-[16rem]">
-          <div className="label-caps">operação</div>
+          <div className="label-caps">operation</div>
           <div className="num text-2xl font-bold text-accent">
-            {operation?.ref ?? "nenhuma operação"}
+            {operation?.ref ?? "no operation"}
           </div>
           <div className="num text-sm text-muted-foreground">
             {operation
               ? [operation.container, operation.origin && `${operation.origin} → ${operation.destination}`]
                   .filter(Boolean)
                   .join(" · ")
-              : "aguardando uma linha em operations"}
+              : "waiting for a row in operations"}
           </div>
           {hasDossier && (
             <button
@@ -153,7 +153,7 @@ export function TopBar({
               onClick={onOpenDossier}
               className="mt-1 rounded border border-live px-2 py-0.5 text-xs font-bold tracking-wide text-live uppercase hover:bg-live/15"
             >
-              ver dossiê
+              view dossier
             </button>
           )}
         </div>
@@ -174,7 +174,7 @@ export function TopBar({
                 </div>
               </div>
               <div className="rounded-md border-2 border-danger bg-danger/15 px-3 py-2">
-                <div className="label-caps text-danger">max · teto duro</div>
+                <div className="label-caps text-danger">max · hard ceiling</div>
                 <div className="num text-2xl font-bold text-danger">
                   {money(mandate.max_rate, currency)}
                 </div>
@@ -186,7 +186,7 @@ export function TopBar({
                 </div>
               </div>
               <div className="panel rounded-md px-3 py-2">
-                <div className="label-caps">janela de coleta</div>
+                <div className="label-caps">pickup window</div>
                 <div className="num text-sm font-semibold">
                   {win(mandate.pickup_from)} → {win(mandate.pickup_to)}
                 </div>
@@ -200,20 +200,20 @@ export function TopBar({
             </>
           ) : (
             <div className="panel rounded-md px-3 py-2 text-sm text-muted-foreground">
-              os chips do mandato aparecem quando o mandato é emitido
+              mandate chips appear once the mandate is issued
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           <Counter label="policy blocks" value={policyBlocks} flashOnIncrement tone="text-danger" />
-          <Counter label="ancorados no áudio" value={anchored} tone="text-live" />
+          <Counter label="anchored in audio" value={anchored} tone="text-live" />
         </div>
       </div>
 
       {mandate?.issue_warnings?.length ? (
         <div className="num border-t border-warn/40 bg-warn/10 px-5 py-1 text-xs text-warn">
-          avisos na emissão: {mandate.issue_warnings.join(" · ")}
+          issue warnings: {mandate.issue_warnings.join(" · ")}
         </div>
       ) : null}
     </header>
