@@ -243,16 +243,27 @@ async def recording(req: Request, bg: BackgroundTasks):
     """
     A gravação ficou pronta. Aqui nasce a evidência (Pilar 02):
     Deepgram devolve palavras com start/end, e cada compromisso é ancorado.
+
+    A Twilio manda `CallSid` do participante da conference que gerou o
+    recording — usamos isso pra achar a linha da chamada. Envolvemos em
+    try/except pra sempre devolver 204 e evitar retries do Twilio caso
+    algum passo posterior falhe.
     """
     f = await req.form()
     url = f.get("RecordingUrl")
-    conf_sid = f.get("ConferenceSid")
-    call = db.find("calls", "conference_sid", conf_sid) or db.find("calls", "call_sid", f.get("CallSid"))
-    if call:
-        db.update("calls", call["id"], {"recording_url": url, "ended_at": "now()"})
-        # fase 7: baixa da Twilio autenticado, transcreve, ancora cada citação,
-        # sobe o áudio pra URL pública, dispara o recap e avança a fase.
-        bg.add_task(verify_call, call["id"], url)
+    call_sid = f.get("CallSid")
+    try:
+        call = db.find("calls", "call_sid", call_sid) if call_sid else None
+        if call:
+            db.update("calls", call["id"], {"recording_url": url, "ended_at": "now()"})
+            # fase 7: baixa da Twilio autenticado, transcreve, ancora cada citação,
+            # sobe o áudio pra URL pública, dispara o recap e avança a fase.
+            bg.add_task(verify_call, call["id"], url)
+        else:
+            print(f"[/twilio/recording] CallSid {call_sid} não bateu com nenhuma "
+                  f"linha em calls — recording ignorado")
+    except Exception as e:
+        print(f"[/twilio/recording] falhou, ignorando: {e}")
     return Response(status_code=204)
 
 
