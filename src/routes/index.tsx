@@ -133,6 +133,12 @@ function DossierModal({ dossier, onClose }: { dossier: Dossier; onClose: () => v
 }
 
 const MOBILE_TABS = ["transcript", "compromissos", "comparação", "escalação"] as const;
+const TAB_LABEL: Record<(typeof MOBILE_TABS)[number], string> = {
+  transcript: "linha",
+  compromissos: "acordos",
+  "comparação": "leilão",
+  "escalação": "decisão",
+};
 type MobileTab = (typeof MOBILE_TABS)[number];
 
 function Dashboard() {
@@ -222,7 +228,7 @@ function Dashboard() {
                         : "text-muted-foreground"
                     }`}
                   >
-                    {t}
+                    {TAB_LABEL[t]}
                   </button>
                 ))}
               </div>

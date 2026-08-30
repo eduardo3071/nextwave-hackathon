@@ -77,6 +77,7 @@ export function MobileHeader({
       : now
     : null;
   const remaining = target != null && reference != null ? target - reference : null;
+  const label = remaining == null ? "--:--:--" : clockLabel(remaining);
   const tone = operation ? (TONE[operation.clock_state] ?? "text-foreground") : "text-muted-foreground";
 
   return (
@@ -117,10 +118,12 @@ export function MobileHeader({
                   : "free time restante"}
           </span>
           <span
-            className={`num text-[3.25rem] leading-[1.05] font-bold tracking-tight ${tone}`}
+            className={`num leading-[1.05] font-bold tracking-tight ${tone} ${
+              label.length > 9 ? "text-[2.4rem]" : "text-[3.25rem]"
+            }`}
             aria-live="polite"
           >
-            {remaining == null ? "--:--:--" : clockLabel(remaining)}
+            {label}
           </span>
           {operation && (
             <span className="num text-[11px] text-muted-foreground">
