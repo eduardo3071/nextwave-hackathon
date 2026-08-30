@@ -178,7 +178,7 @@ function TabBar({
 
 function Dashboard() {
   const isMobile = useIsMobile();
-  const [tab, setTab] = useState<MobileTab>("transcript");
+  const [tab, setTab] = useState<MobileTab>("start");
   const state = useAmarraRealtime();
   const grouped = useByCall(state);
   const { carriers, update } = useCarriers();
