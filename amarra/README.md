@@ -1,73 +1,130 @@
-# Amarra
+# Amarra — Architecture
 
-Agente de voz que negocia frete dentro de um mandato e devolve **compromissos
-amarrados ao áudio**, não transcrições.
+Voice agent for freight negotiation. Returns **commitments anchored to audio**, not transcripts.
 
-NextWave Hackathon 2026 · Desafio 04 — The Agent on the Line
+NextWave Hackathon 2026 · Challenge 04 — *The Agent on the Line*
 
-## Arquitetura em uma linha
+> 📖 **[FLIGHT LOG](FLIGHT_LOG.md)** — every architecture, product and infra decision, with alternatives considered and downstream consequences.
+
+---
+
+## Architecture (one line)
 
 ```
 Twilio (Conference + ConversationRelay)
    ⇅ WebSocket + webhooks
-FastAPI  ──escreve──▶  Supabase (Postgres + Realtime)  ──empurra──▶  Lovable
+FastAPI  ──writes──▶  Supabase (Postgres + Realtime)  ──pushes──▶  Lovable
 ```
 
-O backend **nunca** fala com o frontend. Escreve linhas; o Realtime entrega.
-Zero WebSocket próprio, zero polling, zero CORS.
+The backend **never** talks to the frontend. It writes rows; Realtime delivers them. Zero custom WebSocket, zero polling, zero CORS.
 
-## Os três pilares
+![Architecture diagram](ARCHITECTURE.png)
 
-| | O quê | Onde |
+Full diagram: [ARCHITECTURE.pdf](ARCHITECTURE.pdf) · Regenerate: `python generate_architecture_pdf.py`
+
+---
+
+## Layers
+
+### Frontend — https://nextwave-hackathon.lovable.app
+Vite + React + TanStack Router · mobile-first (430px) · Supabase Realtime subscriber
+
+Components: top bar (countdown), phase rail, call dock, quote table, escalation panel, dossier view, recap card.
+
+### Backend — FastAPI + uvicorn (ngrok: `clique-lukewarm-frail.ngrok-free.dev`)
+9 routers + 6 Twilio endpoints + WebSocket `/ws`.
+
+| Group | Endpoints |
+|---|---|
+| **Demo** | `/demo/scenario/full`, `/demo/dial-market`, `/demo/call-me`, `/demo/call-judge/{id}`, `/demo/recap/{op_id}`, `/demo/test-email`, `/demo/scenario/status/{ref}` |
+| **Phases** | `/phase1/detect`, `/phase2/issue/{op_id}`, `/phase3/open`, `/phase5/release/{auc_id}`, `/phase6/commitments/{op_id}`, `/phase7/verify/{call_id}`, `/phase8/close/{op_id}`, `/phase8/dossier/{op_id}`, `/disruption/report/{op_id}` |
+| **Twilio** | `POST /twiml/inbound`, `POST /twiml/agent`, `POST /twilio/recording`, `POST /twilio/conference`, `POST /twilio/status`, `WS /ws` (ConversationRelay) |
+
+### External services
+| Service | Role |
+|---|---|
+| **Twilio** | Voice + ConversationRelay (calls, conferences, recording) |
+| **Deepgram** | `nova-3` ASR (audio → words with timestamps) |
+| **OpenAI** | `gpt-4.1-mini` (negotiation reasoning) |
+| **Resend** | Email SMTP (R3a recap) |
+
+### Supabase — Postgres + Realtime + Storage
+13 tables, RLS off for demo (permissive on read, `service_role` writes).
+
+Core tables: `operations`, `mandates`, `auctions`, `auction_quotes`, `calls`, `utterances`, `policy_events`, `commitments`, `read_backs`, `escalations`, `recap_deliveries`, `dossiers`, `phase_events`. Storage bucket: `call-audio`.
+
+---
+
+## The three pillars
+
+| # | What | Where |
 |---|---|---|
-| 01 | **Policy Guard** — o modelo nunca fala um número que ele inventou | `app/policy.py` |
-| 02 | **Evidência ancorada** — sem âncora no áudio, o campo não entra | `app/evidence.py` |
-| 03 | **Leilão com lock de reserva** — 3 em paralelo, só um pode fechar | `app/auction.py` |
+| 01 | **Policy Guard** — model never speaks a number it invented | [app/policy.py](app/policy.py) |
+| 02 | **Anchored evidence** — no anchor in audio, no field | [app/phase7_verified.py](app/phase7_verified.py) |
+| 03 | **Auction with reservation lock** — 3 in parallel, only one can close | [app/auction.py](app/auction.py) |
 
-## A prova
+---
+
+## The 8-phase spine (+ 4 branches)
+
+```
+detected → mandate_issued → market_open → negotiating
+        → reserved → committed → verified → closed
+             ▲                        │
+             └──── resolved ◄── escalated ◄── renegotiating ◄── disrupted
+```
+
+Mandatory guards inside `advance()`:
+- `MARKET_OPEN` — at least 3 carriers (encodes R7)
+- `RESERVED` / `COMMITTED` — reservation lock held
+- `COMMITTED` — value ≤ ceiling
+- `VERIFIED` — at least one commitment anchored in audio (Pillar 02 invariant)
+- `CLOSED` — recap delivered (R3a)
+
+---
+
+## Requirements → code
+
+| ID | Requirement | Where |
+|---|---|---|
+| R1 | Real outbound over the phone network | `twilio_voice.dial_counterparty` |
+| R2 | Inbound understood and acted on | `POST /twiml/inbound` |
+| R3a | Written recap post-call | `phase7_verified.send_recap` + Resend |
+| R3b | Commitment tied to audio timestamp | `phase7_verified.anchor` |
+| R4 | Structured call brief | `AgentSession.close` |
+| R5 | Conversation and system consistent | `policy.gate_text` + `policy_events` |
+| R6 | Mid-call escalation without hanging up | `twilio_voice.join_human` (coach whisper) |
+| R7 | 3+ in parallel, auditable comparison | `auction.py` + `auction_quotes` |
+
+---
+
+## Proof
 
 ```bash
-pytest tests/ -q       # 878 casos, <1s, nenhum ALLOW acima do teto
+pytest tests/ -q       # 951 cases, <5s, zero ALLOW above ceiling
 ```
 
-## Rodar
+The invariant is the pitch: **no policy engine test ever authorizes a value above the mandate ceiling**, over ~800 parameterized adversarial asks.
+
+---
+
+## Run
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env            # preencher
-psql < db/schema.sql            # ou Supabase SQL Editor
-python 00_smoke_test.py +55...  # PORTÃO: o telefone precisa tocar
+cp .env.example .env                # fill in the blanks
+psql < db/schema.sql                # or Supabase SQL Editor
+psql < db/002_phases.sql
+python 00_smoke_test.py +55...      # gate 0: the phone has to ring
 uvicorn app.main:app --port 8000
-ngrok http --domain=SEU.ngrok.app 8000
+ngrok http --domain=YOUR.ngrok.app 8000
 ```
 
-Console Twilio: crie uma **TwiML App** apontando para
-`https://SEU.ngrok.app/twiml/agent` e cole o SID em `TWIML_APP_SID`.
-No número comprado, aponte "A call comes in" para `/twiml/inbound`.
+Twilio console: create a **TwiML App** pointing at `https://YOUR.ngrok.app/twiml/agent` and paste the SID into `TWIML_APP_SID`. On the purchased number, point "A call comes in" at `/twiml/inbound`.
 
-## Requisitos do enunciado
-
-| ID | Requisito | Onde |
-|---|---|---|
-| R1 | Outbound real pela rede telefônica | `twilio_voice.dial_counterparty` |
-| R2 | Inbound compreendido e agido | `POST /twiml/inbound` |
-| R3a | Recap escrito pós-chamada | `evidence` + e-mail |
-| R3b | Compromisso ligado ao timestamp do áudio | `evidence.anchor` |
-| R4 | Call brief estruturado | `AgentSession.close` |
-| R5 | Conversa e sistema consistentes | `policy.gate_text` + `policy_events` |
-| R6 | Escalação mid-call sem desligar | `twilio_voice.join_human` |
-| R7 | 3+ em paralelo, comparação auditável | `auction.py` |
-
-## Fases
-
-Espinha de 8 passos e 4 desvios, com guardas que codificam as invariantes:
-`committed` exige o lock de reserva, `verified` exige compromisso ancorado,
-`closed` exige recap enviado. A barra de progresso É a asserção.
-
+Rehearse without the phone:
 ```bash
-psql < db/002_phases.sql          # ou Supabase SQL Editor
-python demo_driver.py             # percorre tudo sem telefonar
-python demo_driver.py --fast      # sem pausas, para desenvolver a UI
+python demo_driver.py --fast        # walks every phase, panel updates via Realtime
 ```
 
-Ver `WIRING_PHASES.md` para os seis pontos de integração no código existente.
+The agent speaks **English only**. See [FLIGHT_LOG.md](FLIGHT_LOG.md) for the reasoning behind every non-obvious decision.
