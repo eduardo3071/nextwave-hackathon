@@ -98,6 +98,9 @@ INVIOLABLE RULES:
 - When you agree on something concrete (date, time, equipment, driver), call
   `record_commitment` copying LITERALLY what the counterparty said.
 - If the conversation goes beyond your authority, call `escalate`.
+- If the counterparty reports an OPERATIONAL PROBLEM (truck broke, driver
+  late, needs to change day, can't fulfill what was already agreed), call
+  `report_disruption` with the reason and `needs_reschedule=true`.
 
 Pickup window: {m['pickup_from']} to {m['pickup_to']}.
 Speak naturally and briefly — this is a phone call, not an email.
@@ -137,6 +140,19 @@ TOOLS = [
         "description": "Termina la llamada con cortesía cuando ya no hay nada que tratar.",
         "parameters": {"type": "object", "properties": {
             "reason": {"type": "string"}}, "required": ["reason"]}}},
+    {"type": "function", "function": {
+        "name": "report_disruption",
+        "description": "Chame quando a contraparte reportar problema operacional "
+                       "(caminhão quebrou, motorista atrasado, precisa mudar dia, "
+                       "algo que impede cumprir o combinado). Marca a operação "
+                       "como 'disrupted' e dispara callback pro segundo colocado "
+                       "se `needs_reschedule=true`.",
+        "parameters": {"type": "object", "properties": {
+            "reason": {"type": "string",
+                       "description": "descrição curta do problema (ex: 'truck breakdown')"},
+            "needs_reschedule": {"type": "boolean",
+                                 "description": "true se precisa reabrir mercado com outro carrier"}},
+            "required": ["reason"]}}},
 ]
 
 
@@ -270,6 +286,31 @@ class NegotiationSession:
         if name == "close_call":
             await self._close_call(args.get("reason", "nothing_further"))
             return {"closed": True}
+
+        if name == "report_disruption":
+            # Resultado #2 do enunciado: driver reporta problema → agente
+            # entende, marca operação, dispara callback pro segundo colocado (#3).
+            from app.phase_disruption import handle_disruption
+            reason = args.get("reason", "unspecified")
+            needs_reschedule = bool(args.get("needs_reschedule", True))
+            try:
+                result = await handle_disruption(
+                    self.op["id"], reason, needs_reschedule, call_id=self.call_id)
+            except Exception as e:
+                print(f"[fase4] handle_disruption falhou: {e}")
+                result = {"error": str(e)}
+
+            lang = (self.call.get("language") or "en")[:2]
+            ack = ("Understood, thanks for letting me know. I'll re-open the "
+                   "market and get back to you within the hour."
+                   if lang == "en" else
+                   "Entendido, obrigado por avisar. Vou reabrir o mercado e "
+                   "te retorno em até uma hora." if lang == "pt" else
+                   "Entendido, gracias por avisar. Voy a reabrir el mercado "
+                   "y te vuelvo a llamar en menos de una hora.")
+            self.state.approved_utterances.add(ack)
+            await self._say(ack, approved=True)
+            return {"registered": True, **result}
 
         return {}
 
