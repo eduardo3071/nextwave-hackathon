@@ -238,81 +238,70 @@ function Dashboard() {
             onOpenEscalation={() => setTab("escalation")}
           />
 
-          <CallDock calls={calls} big={!operation} />
-          <MarketDock phase={phase} calls={calls} carriers={carriers} onUpdateCarriers={update} />
+          <TabBar tab={tab} setTab={setTab} />
 
-          {!operation ? (
-            <section className="rounded-2xl border border-border bg-card/60 px-5 py-12 text-center">
-              <div className="text-3xl">📦</div>
-              <div className="mt-3 text-base font-bold">No live operation</div>
-              <div className="num mt-1 text-xs text-muted-foreground">
-                the room lights up on its own when the backend writes the first row
-              </div>
-            </section>
-          ) : (
-            <>
-              <div className="flex gap-1 rounded-full border border-border bg-card/60 p-1">
-                {MOBILE_TABS.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTab(t)}
-                    className={`num min-w-0 flex-1 truncate rounded-full px-2 py-2 text-[11px] font-bold tracking-wide uppercase transition ${
-                      tab === t
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {TAB_LABEL[t]}
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-4">
-                {tab === "transcript" &&
-                  (counterpartyCalls.length === 0 ? (
-                    <div className="panel num rounded-md px-3 py-6 text-sm text-muted-foreground">
-                      columns appear when the auction dials — one per leg
+          <div className="space-y-4">
+            {tab === "start" && (
+              <>
+                <CallDock calls={calls} big={!operation} />
+                <MarketDock
+                  phase={phase}
+                  calls={calls}
+                  carriers={carriers}
+                  onUpdateCarriers={update}
+                />
+                {!operation && (
+                  <section className="rounded-2xl border border-border bg-card/60 px-5 py-12 text-center">
+                    <div className="text-3xl">📦</div>
+                    <div className="mt-3 text-base font-bold">No live operation</div>
+                    <div className="num mt-1 text-xs text-muted-foreground">
+                      the room lights up on its own when the backend writes the first row
                     </div>
-                  ) : (
-                    counterpartyCalls.map((c) => (
-                      <CallColumn
-                        key={c.id}
-                        call={c}
-                        utterances={grouped.utterances.get(c.id) ?? []}
-                        policyEvents={grouped.policyEvents.get(c.id) ?? []}
-                        readBacks={grouped.readBacks.get(c.id) ?? []}
-                        currency={currency}
-                        isWinner={c.id === winnerCallId}
-                      />
-                    ))
-                  ))}
-                {tab === "commitments" && (
-                  <>
-                    <CommitmentsList commitments={commitments} />
-                    <RecapCard
-                      recaps={recaps}
-                      dossier={dossier}
-                      onOpenDossier={() => setShowDossier(true)}
-                    />
-                  </>
+                  </section>
                 )}
-                {tab === "comparison" && (
-                  <QuoteTable quotes={quotes} auction={auction} currency={currency} />
-                )}
-                {tab === "escalation" && (
-                  <>
-                    <EscalationPanel
-                      escalations={escalations}
-                      currency={currency}
-                      live={phase === "escalated" || escalations.some((e) => !e.resolution)}
-                    />
-                    <PhaseTimeline events={phaseEvents} />
-                  </>
-                )}
-              </div>
-            </>
-          )}
+              </>
+            )}
+            {tab === "transcript" &&
+              (counterpartyCalls.length === 0 ? (
+                <div className="panel num rounded-md px-3 py-6 text-sm text-muted-foreground">
+                  columns appear when the auction dials — one per leg
+                </div>
+              ) : (
+                counterpartyCalls.map((c) => (
+                  <CallColumn
+                    key={c.id}
+                    call={c}
+                    utterances={grouped.utterances.get(c.id) ?? []}
+                    policyEvents={grouped.policyEvents.get(c.id) ?? []}
+                    readBacks={grouped.readBacks.get(c.id) ?? []}
+                    currency={currency}
+                    isWinner={c.id === winnerCallId}
+                  />
+                ))
+              ))}
+            {tab === "comparison" && (
+              <QuoteTable quotes={quotes} auction={auction} currency={currency} />
+            )}
+            {tab === "escalation" && (
+              <EscalationPanel
+                escalations={escalations}
+                currency={currency}
+                live={phase === "escalated" || escalations.some((e) => !e.resolution)}
+              />
+            )}
+            {tab === "timeline" && <PhaseTimeline events={phaseEvents} />}
+            {tab === "recap" && (
+              <>
+                <CommitmentsList commitments={commitments} />
+                <RecapCard
+                  recaps={recaps}
+                  dossier={dossier}
+                  onOpenDossier={() => setShowDossier(true)}
+                />
+              </>
+            )}
+          </div>
+
         </main>
 
         <MobileActions
