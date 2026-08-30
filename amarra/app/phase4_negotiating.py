@@ -133,6 +133,19 @@ TOOLS = [
 ]
 
 
+def _slow(text: str) -> str:
+    """
+    Wrap the agent's utterance in SSML so ElevenLabs speaks at 90% of
+    normal rate, with short pauses between sentences. Without this the
+    default TTS races through the phrase and numbers become unintelligible.
+    """
+    # small pause after each sentence-final punctuation → the ear catches up
+    padded = (text.replace(". ", '. <break time="250ms"/> ')
+                  .replace("? ", '? <break time="250ms"/> ')
+                  .replace("! ", '! <break time="250ms"/> '))
+    return f'<speak><prosody rate="90%">{padded}</prosody></speak>'
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 class NegotiationSession:
     def __init__(self, *, call_id: str, ws: WebSocket, agent_call_sid: str):
@@ -252,12 +265,12 @@ class NegotiationSession:
             self.actions.append({"t": self._ms(), "action": "commitment_pending",
                                  "field": args["field"], "quote": args["exact_quote"]})
             return {"recorded": "pending_anchor",
-                    "instruction": "Confirma con la contraparte repitiendo el dato."}
+                    "instruction": "Confirm with the counterparty by repeating the value back."}
 
         if name == "escalate":
             await self._escalate(args.get("reason", "agent_requested"))
             return {"escalated": True,
-                    "instruction": "No hables más de precios. Espera al supervisor."}
+                    "instruction": "Stop talking about prices. Wait for the supervisor."}
 
         if name == "close_call":
             await self._close_call(args.get("reason", "nothing_further"))
@@ -312,7 +325,7 @@ class NegotiationSession:
 
         if res.decision is Decision.ESCALATE:
             await self._escalate(res.reason)
-            return {"spoken": False, "instruction": "Ya escalé. No hables de precios."}
+            return {"spoken": False, "instruction": "Already escalated. Do not talk about prices."}
 
         # ── recusar ou escalar? a banda da fase 2 decide ───────────────────
         if res.decision is Decision.DENY and res.reason == "above_max_rate":
@@ -325,13 +338,13 @@ class NegotiationSession:
                 await self._escalate("within_escalation_band",
                                      computation=self._computation(ask))
                 return {"spoken": True,
-                        "instruction": "Escalado. No negocies más este número."}
+                        "instruction": "Escalated. Do not negotiate this number further."}
             # Acima do ponto de equilíbrio: nenhum humano aprovaria isso.
             # Recusar e seguir é mais respeitoso com o tempo de todos.
             self.state.approved_utterances.add(res.utterance)
             await self._say(res.utterance, approved=True)
             return {"spoken": True, "decision": "deny",
-                    "instruction": "Rechazado. Sigue la conversación sin montos."}
+                    "instruction": "Rejected. Continue the conversation without amounts."}
 
         # ── fechar exige o LOCK do leilão (fase 5, árbitro no banco) ───────
         reservou_agora = False
@@ -341,10 +354,11 @@ class NegotiationSession:
                                       "buy_it_now")
                 if not r.get("granted"):
                     # Outra chamada já fechou. Nunca prometemos o que não temos.
-                    frase = "Déjame confirmar disponibilidad y te regreso la llamada."
+                    frase = ("Let me confirm availability and I'll call "
+                             "you right back.")
                     self.state.approved_utterances.add(frase)
                     await self._say(frase, approved=True)
-                    return {"spoken": True, "instruction": "No confirmes nada."}
+                    return {"spoken": True, "instruction": "Do not confirm anything."}
                 reservou_agora = True
 
         if res.amount is not None:
@@ -394,8 +408,13 @@ class NegotiationSession:
                 self.actions.append({"t": self._ms(), "action": "policy_block"})
                 print(f"[POLICY BLOCK] {self.call_id}")
 
+        # A voz vai lenta e clara. ElevenLabs no ConversationRelay respeita
+        # SSML quando o token começa com <speak>: prosody rate=90% derruba
+        # o tempo pra um patamar que dá pra acompanhar de ouvido, e as
+        # pausas entre sentenças evitam que dois números caiam em cima do outro.
+        spoken = _slow(text)
         await self.ws.send_text(json.dumps(
-            {"type": "text", "token": text, "last": True}))
+            {"type": "text", "token": spoken, "last": True}))
         db.insert("utterances", {"call_id": self.call_id, "speaker": "agent",
                                  "text": text, "t_ms": self._ms()})
         self.history.append({"role": "assistant", "content": text})
@@ -466,6 +485,10 @@ class NegotiationSession:
                           "computation": computation or self._computation()})
         except Exception as e:
             print(f"[fase4] falha ao escalar: {e}")
+
+    def computation(self, ask: Decimal | None = None) -> dict | None:
+        """Public alias used by /escalate route."""
+        return self._computation(ask)
 
     def _computation(self, ask: Decimal | None = None) -> dict | None:
         """A conta que o supervisor lê em nove segundos."""

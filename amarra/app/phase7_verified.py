@@ -262,6 +262,18 @@ async def verify_call(call_id: str, recording_url: str) -> dict:
                        f"{rejeitados} rejeitados · recap enviado")
     except PhaseError as e:
         print(f"[fase7] guarda recusou: {e}")
+        return resumo
+
+    # Fluxograma completo: com áudio ancorado E recap enviado, a fase 8
+    # tem tudo que precisa. Encerra automaticamente pra o painel mostrar
+    # DETECTED → ... → VERIFIED → CLOSED numa varredura só.
+    try:
+        from app.phase8_closed import close_operation
+        dossier = await close_operation(op["id"], reason="verified_and_recap_ok")
+        resumo["closed"] = True
+        resumo["dossier_headline"] = dossier.get("headline")
+    except Exception as e:
+        print(f"[fase7→fase8] fechamento automático falhou: {e}")
 
     return resumo
 

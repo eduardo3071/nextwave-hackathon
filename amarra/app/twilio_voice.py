@@ -46,7 +46,8 @@ def conference_twiml(conf: str, record: bool = True) -> str:
 </Response>"""
 
 
-GREETING = "Hello, this is the assistant from Textiles Pacifico. Do you have a minute?"
+GREETING = ("Hello, this is the assistant from Textiles Pacifico. "
+            "Do you have a minute?")
 
 
 def agent_twiml(conf: str, call_id: str, lang: str = "en-US") -> str:
@@ -58,7 +59,9 @@ def agent_twiml(conf: str, call_id: str, lang: str = "en-US") -> str:
     barge-in (bonus B1). The interruption event must TRUNCATE the
     model history, otherwise it thinks it said the whole line.
 
-    English-only. Ignores `lang` arg (kept for backward compat).
+    `voice="Rachel"` = clear, medium-paced ElevenLabs voice — the default
+    voice was too fast and hard to follow. English-only. Ignores `lang`
+    arg (kept for backward compat).
     """
     return f"""<Response>
   <Connect action="https://{PUBLIC_HOST}/twilio/relay-done">
@@ -66,7 +69,8 @@ def agent_twiml(conf: str, call_id: str, lang: str = "en-US") -> str:
         url="wss://{PUBLIC_HOST}/ws"
         language="en-US"
         transcriptionProvider="Deepgram" speechModel="nova-3"
-        ttsProvider="ElevenLabs"
+        ttsProvider="ElevenLabs" voice="Rachel"
+        elevenlabsTextNormalization="on"
         interruptible="speech" interruptSensitivity="high"
         reportInputDuringAgentSpeech="speech"
         ignoreBackchannel="true" dtmfDetection="true"

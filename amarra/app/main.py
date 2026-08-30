@@ -38,7 +38,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from app import twilio_voice as tw
-from app.agent import AgentSession, SESSIONS
+from app.phase4_negotiating import NegotiationSession as AgentSession, SESSIONS
 from app.auction import AUCTIONS, Auction
 from app.db import db
 from app.phase1_detected import router as phase1_router, start_clock
@@ -789,50 +789,8 @@ async def demo_call_me(req: Request):
             "url": url, "status": "queued", "warnings": warnings}
 
 
-# ═══════════════════════════════════════════════════════════════════════════
-# ConversationRelay — o loop de conversa
-# ═══════════════════════════════════════════════════════════════════════════
-@app.websocket("/ws")
-async def relay(ws: WebSocket):
-    await ws.accept()
-    sess: AgentSession | None = None
-    t0 = time.monotonic()
-
-    try:
-        while True:
-            msg = json.loads(await ws.receive_text())
-            kind = msg.get("type")
-
-            if kind == "setup":
-                params = msg.get("customParameters", {}) or {}
-                call_id = params.get("call_id")
-                sess = AgentSession(call_id=call_id, ws=ws,
-                                    agent_call_sid=msg.get("callSid"), t0=t0)
-                SESSIONS[call_id] = sess
-                db.update("calls", call_id, {"status": "live"})
-                await sess.open()
-
-            elif kind == "prompt" and sess:
-                # fala da contraparte, já transcrita
-                await sess.on_speech(msg["voicePrompt"], lang=msg.get("lang"))
-
-            elif kind == "interrupt" and sess:
-                # BARGE-IN (bônus B1). Truncar o histórico no ponto do corte é
-                # obrigatório: sem isso o modelo acha que falou a frase inteira.
-                sess.on_interrupt(msg.get("utteranceUntilInterrupt", ""),
-                                  msg.get("durationUntilInterruptMs", 0))
-
-            elif kind == "dtmf" and sess:
-                sess.on_dtmf(msg.get("digit"))
-
-            elif kind == "error":
-                print("relay error:", msg)
-
-    except WebSocketDisconnect:
-        pass
-    finally:
-        if sess:
-            await sess.close()
+# ConversationRelay's /ws is registered by phase4_router above (see comment
+# next to include_router(phase4_router)). No duplicate handler here.
 
 
 # ═══════════════════════════════════════════════════════════════════════════
