@@ -4,6 +4,9 @@ import { CallColumn } from "@/components/amarra/CallColumn";
 import { MarketDock } from "@/components/amarra/MarketDock";
 
 import { CallDock } from "@/components/amarra/CallDock";
+import { MobileActions } from "@/components/amarra/mobile/MobileActions";
+import { MobileHeader } from "@/components/amarra/mobile/MobileHeader";
+import { MobilePhaseStrip } from "@/components/amarra/mobile/MobilePhaseStrip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CommitmentsList } from "@/components/amarra/CommitmentsList";
 import { EscalationPanel } from "@/components/amarra/EscalationPanel";
