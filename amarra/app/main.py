@@ -20,6 +20,13 @@ empurra para o Lovable. Zero WebSocket próprio para o painel.
 
 from __future__ import annotations
 
+# Carrega `amarra/.env` ANTES de qualquer `from app.*` — twilio_voice, db e
+# outros leem env vars no import time. Sem isso, `uvicorn app.main:app`
+# quebra com KeyError('TWILIO_ACCOUNT_SID').
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
 import asyncio
 import json
 import os
