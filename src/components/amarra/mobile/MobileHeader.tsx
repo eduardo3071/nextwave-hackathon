@@ -85,17 +85,9 @@ export function MobileHeader({
       <div className="mx-auto w-full max-w-[430px] px-4 pt-3 pb-3">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0">
-            <div className="num truncate text-sm font-bold tracking-wide text-accent">
-              {operation?.ref ?? "no operation"}
-            </div>
-            <div className="num truncate text-[11px] text-muted-foreground">
-              {operation
-                ? [operation.container, operation.origin && `${operation.origin} → ${operation.destination}`]
-                    .filter(Boolean)
-                    .join(" · ")
-                : "awaiting discharge"}
-            </div>
+            <CrewLogo size="sm" tagline="freight negotiation control room" />
           </div>
+
           {hasDossier && (
             <button
               type="button"
