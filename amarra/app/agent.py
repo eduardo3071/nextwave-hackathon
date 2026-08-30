@@ -36,7 +36,7 @@ REGLAS INVIOLABLES:
 - Cuando acuerden algo concreto (fecha, hora, equipo, chofer), llama `record_commitment`
   copiando LITERALMENTE las palabras que dijo la contraparte.
 - Si la conversación se sale de tu autoridad, llama `escalate`.
-Habla natural, breve, en el idioma del interlocutor. Frases cortas: esto es una llamada."""
+Speak naturally and briefly, ALWAYS in English regardless of the counterparty's language. Short sentences: this is a phone call."""
 
 TOOLS = [
     {"type": "function", "function": {
