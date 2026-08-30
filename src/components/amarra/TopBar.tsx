@@ -1,3 +1,4 @@
+import { CrewLogo } from "@/components/amarra/CrewLogo";
 import { useEffect, useRef, useState } from "react";
 import {
   clockLabel,
