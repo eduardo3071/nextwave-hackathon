@@ -1,0 +1,22 @@
+{
+  "judges": [
+    {
+      "id": "walter",
+      "name": "Walter",
+      "phone": "+5511989873564",
+      "email": "walter@y.uno",
+      "country": "BR",
+      "timezone": "America/Sao_Paulo",
+      "note": "jurado NextWave 2026, Y.uno"
+    },
+    {
+      "id": "denis",
+      "name": "Denis Dvoretskikh",
+      "phone": "+5491130407499",
+      "email": "denis.dvoretskikh@y.uno",
+      "country": "AR",
+      "timezone": "America/Argentina/Buenos_Aires",
+      "note": "jurado NextWave 2026, Y.uno · Argentina (verificar Geo Permission ARG no Twilio)"
+    }
+  ]
+}

@@ -347,19 +347,35 @@ async def send_recap(operation_id: str, call_id: str) -> dict:
 
     out = {"email": None}
 
-    # e-mail é o canal confiável do R3a
-    to = os.getenv("RECAP_TO")
-    if to and os.getenv("RESEND_API_KEY"):
+    # e-mail é o canal confiável do R3a. RECAP_TO aceita comma-separated pra
+    # múltiplos destinatários (ex: dono + jurados NextWave). RECAP_CC opcional
+    # também vira BCC pra manter compromisso auditável mesmo se algum email
+    # cair em spam.
+    to_raw = os.getenv("RECAP_TO", "")
+    cc_raw = os.getenv("RECAP_CC", "")
+    to_list = [e.strip() for e in to_raw.split(",") if e.strip()]
+    cc_list = [e.strip() for e in cc_raw.split(",") if e.strip()]
+    all_recipients = to_list + [c for c in cc_list if c not in to_list]
+
+    if all_recipients and os.getenv("RESEND_API_KEY"):
+        target_display = ", ".join(all_recipients)
         try:
             async with httpx.AsyncClient(timeout=30) as c:
+                payload = {
+                    "from": os.getenv("RECAP_FROM", "amarra@resend.dev"),
+                    "to": to_list or all_recipients,
+                    "subject": assunto,
+                    "text": corpo,
+                }
+                if cc_list:
+                    payload["cc"] = cc_list
                 r = await c.post("https://api.resend.com/emails",
                     headers={"Authorization": f"Bearer {os.environ['RESEND_API_KEY']}"},
-                    json={"from": os.getenv("RECAP_FROM", "amarra@resend.dev"),
-                          "to": [to], "subject": assunto, "text": corpo})
+                    json=payload)
             ok = r.status_code < 300
             db.insert("recap_deliveries", {
                 "operation_id": operation_id, "call_id": call_id, "channel": "email",
-                "target": to, "subject": assunto, "body": corpo,
+                "target": target_display, "subject": assunto, "body": corpo,
                 "provider_id": (r.json() or {}).get("id") if ok else None,
                 "status": "sent" if ok else "failed",
                 "error": None if ok else r.text[:400]})
@@ -367,7 +383,7 @@ async def send_recap(operation_id: str, call_id: str) -> dict:
         except Exception as e:
             db.insert("recap_deliveries", {
                 "operation_id": operation_id, "call_id": call_id, "channel": "email",
-                "target": to, "subject": assunto, "body": corpo,
+                "target": target_display, "subject": assunto, "body": corpo,
                 "status": "failed", "error": str(e)[:400]})
             out["email"] = "failed"
 

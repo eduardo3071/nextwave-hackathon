@@ -543,6 +543,63 @@ async def demo_send_recap(operation_id: str, req: Request):
     return {"operation_id": operation_id, "call_id": call_id, "delivery": result}
 
 
+@app.post("/demo/call-judge/{judge_id}")
+async def demo_call_judge(judge_id: str):
+    """
+    Dispara /demo/call-me apontando pra o número do jurado dado.
+    Lê judges.json (raiz do amarra/), busca pelo id ("walter", "denis"),
+    usa o phone do jurado, e a Twilio disca. Custo do saldo Twilio; jurado
+    só recebe (grátis).
+
+    Exemplo: POST /demo/call-judge/walter
+    """
+    from pathlib import Path
+
+    cfg_path = Path(__file__).resolve().parent.parent / "judges.json"
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        return JSONResponse({"error": f"judges.json inválido: {e}"}, 500)
+
+    judge = next((j for j in cfg.get("judges", []) if j["id"] == judge_id), None)
+    if not judge:
+        available = [j["id"] for j in cfg.get("judges", [])]
+        return JSONResponse(
+            {"error": f"jurado '{judge_id}' não encontrado",
+             "available": available}, 404)
+
+    from_number = os.environ["TWILIO_PHONE_NUMBER"]
+    host = os.environ["PUBLIC_HOST"]
+    url = f"https://{host}/twiml/inbound?demo=1"
+
+    from twilio.base.exceptions import TwilioRestException
+    try:
+        call = tw.client.calls.create(
+            to=judge["phone"], from_=from_number, url=url, method="POST",
+        )
+    except TwilioRestException as e:
+        hint = ""
+        if e.code == 21215:
+            hint = (f" · Geo permission pra {judge.get('country','?')} desligada — "
+                    f"Console → Voice → Settings → Geo Permissions")
+        return JSONResponse({"error": f"{e.code}: {e.msg}{hint}",
+                             "judge": judge}, 400)
+
+    return {"call_sid": call.sid, "judge": judge, "url": url}
+
+
+@app.get("/demo/judges")
+async def demo_judges():
+    """Lista os jurados configurados em judges.json (nome, phone, email)."""
+    from pathlib import Path
+    cfg_path = Path(__file__).resolve().parent.parent / "judges.json"
+    try:
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        return cfg
+    except Exception as e:
+        return JSONResponse({"error": f"judges.json inválido: {e}"}, 500)
+
+
 @app.post("/demo/test-email")
 async def demo_test_email(req: Request):
     """
