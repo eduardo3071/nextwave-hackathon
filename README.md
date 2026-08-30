@@ -1,160 +1,130 @@
-# NextWave-Hackathon
+# Amarra — Architecture
 
-# Prompt para o Lovable
+Voice agent for freight negotiation. Returns **commitments anchored to audio**, not transcripts.
 
+NextWave Hackathon 2026 · Challenge 04 — *The Agent on the Line*
 
-
-
-Cole isto no Lovable. Depois conecte o Supabase pelo botão nativo e cole a
-
-`SUPABASE_URL` + a **anon key** (nunca a service_role).
-
-
-
+> 📖 **[FLIGHT LOG](FLIGHT_LOG.md)** — every architecture, product and infra decision, with alternatives considered and downstream consequences.
 
 ---
 
+## Architecture (one line)
 
-
-
-Build a real-time operations dashboard called **Amarra**, for a voice AI agent
-
-that negotiates freight over the phone. Dark, dense, control-room aesthetic —
-
-this is monitored during a live phone negotiation, not browsed.
-
-
-
-
-**Data comes from Supabase Realtime. Subscribe, never poll.**
-
-Tables: `operations`, `mandates`, `auctions`, `calls`, `utterances`,
-
-`policy_events`, `commitments`, `escalations`.
-
-
-
-
-## Layout
-
-
-
-
-**Top bar** — fixed:
-
-- Operation ref, container, origin → destination.
-
-- **A live countdown to `operations.free_time_ends`**, big, monospace. Under it:
-
-  "after this: $X/day demurrage". Turns amber under 6h, red under 2h.
-
-  This is the emotional center of the screen — make it the largest element.
-
-- Mandate chips: `target` / `max` / pickup window. Max is styled as a hard
-
-  boundary, not a suggestion.
-
-- Two counters: **POLICY BLOCKS** and **COMMITMENTS ANCHORED**. Policy blocks
-
-  flashes red when it increments.
-
-
-
-
-**Main area — three call columns side by side**, one per row in `calls` where
-
-`auction_id` matches the running auction. Each column:
-
-- Carrier name, phone, status pill (dialing / live / escalated / done).
-
-  A live call gets a pulsing dot.
-
-- **Live transcript**: `utterances` for that `call_id`, newest at the bottom,
-
-  auto-scroll. Agent lines and counterparty lines visually distinct.
-
-  Rows with `interrupted = true` get a small "interrupted" marker.
-
-- **Policy strip** under the transcript: each `policy_events` row as a compact
-
-  line — `ask → decision`. `allow` in green, `deny` in amber, `block` in red,
-
-  `escalate` in blue. Hovering shows the `reason`.
-
-- When a call ends because another won, fade the column and stamp it "released".
-
-
-
-
-**Right rail:**
-
-- **Quote comparison table** — carrier, final ask, rounds, winner flag, reason.
-
-  The winning row is highlighted. This is an audit artifact; make it look like one.
-
-- **Commitments list** — for each: field, value, state, and the quote in italics
-
-  with its `[mm:ss–mm:ss]` window. **Clicking a commitment plays that exact slice
-
-  of `calls.recording_url`** using an `<audio>` element with `currentTime` set
-
-  from `t_start_ms`, pausing at `t_end_ms`. This is the single most important
-
-  interaction on the page — make it obvious and satisfying.
-
-- **Escalation panel** — appears when an `escalations` row arrives. Shows the
-
-  `brief`, and renders `computation` as a comparison: option on-time vs option
-
-  late-with-demurrage, with the delta, and a red line "exceeds mandate by $X".
-
-  Two buttons: "Approve" and "Reject". Both POST to
-
-  `${VITE_BACKEND_URL}/escalate/{call_id}/resolve`.
-
-
-
-
-**Bottom:** an "Start auction" button that POSTs to
-
-`${VITE_BACKEND_URL}/auction/start` with the operation ref and the carrier list.
-
-
-
-
-## Rules
-
-- Everything animates in from realtime events. Nothing is fetched on an interval.
-
-- Monospace for all numbers, times and money. `tabular-nums`.
-
-- No placeholder or mock data — empty states say what will appear.
-
-- Two env vars: `VITE_BACKEND_URL`, plus the Supabase connection.
-
-- Must be readable from the back of a room on a projector: large type,
-
-  high contrast, no thin greys.
-
-This project was built with [Lovable](https://lovable.dev).
-
-**Live app**: https://nextwave-hackathon.lovable.app
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/f9a1a643-57ba-4dd3-ae99-4819dff36a19).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
 ```
+Twilio (Conference + ConversationRelay)
+   ⇅ WebSocket + webhooks
+FastAPI  ──writes──▶  Supabase (Postgres + Realtime)  ──pushes──▶  Lovable
+```
+
+The backend **never** talks to the frontend. It writes rows; Realtime delivers them. Zero custom WebSocket, zero polling, zero CORS.
+
+![Architecture diagram](ARCHITECTURE.png)
+
+Full diagram: [ARCHITECTURE.pdf](ARCHITECTURE.pdf) · Regenerate: `python generate_architecture_pdf.py`
+
+---
+
+## Layers
+
+### Frontend — https://nextwave-hackathon.lovable.app
+Vite + React + TanStack Router · mobile-first (430px) · Supabase Realtime subscriber
+
+Components: top bar (countdown), phase rail, call dock, quote table, escalation panel, dossier view, recap card.
+
+### Backend — FastAPI + uvicorn (ngrok: `clique-lukewarm-frail.ngrok-free.dev`)
+9 routers + 6 Twilio endpoints + WebSocket `/ws`.
+
+| Group | Endpoints |
+|---|---|
+| **Demo** | `/demo/scenario/full`, `/demo/dial-market`, `/demo/call-me`, `/demo/call-judge/{id}`, `/demo/recap/{op_id}`, `/demo/test-email`, `/demo/scenario/status/{ref}` |
+| **Phases** | `/phase1/detect`, `/phase2/issue/{op_id}`, `/phase3/open`, `/phase5/release/{auc_id}`, `/phase6/commitments/{op_id}`, `/phase7/verify/{call_id}`, `/phase8/close/{op_id}`, `/phase8/dossier/{op_id}`, `/disruption/report/{op_id}` |
+| **Twilio** | `POST /twiml/inbound`, `POST /twiml/agent`, `POST /twilio/recording`, `POST /twilio/conference`, `POST /twilio/status`, `WS /ws` (ConversationRelay) |
+
+### External services
+| Service | Role |
+|---|---|
+| **Twilio** | Voice + ConversationRelay (calls, conferences, recording) |
+| **Deepgram** | `nova-3` ASR (audio → words with timestamps) |
+| **OpenAI** | `gpt-4.1-mini` (negotiation reasoning) |
+| **Resend** | Email SMTP (R3a recap) |
+
+### Supabase — Postgres + Realtime + Storage
+13 tables, RLS off for demo (permissive on read, `service_role` writes).
+
+Core tables: `operations`, `mandates`, `auctions`, `auction_quotes`, `calls`, `utterances`, `policy_events`, `commitments`, `read_backs`, `escalations`, `recap_deliveries`, `dossiers`, `phase_events`. Storage bucket: `call-audio`.
+
+---
+
+## The three pillars
+
+| # | What | Where |
+|---|---|---|
+| 01 | **Policy Guard** — model never speaks a number it invented | [app/policy.py](app/policy.py) |
+| 02 | **Anchored evidence** — no anchor in audio, no field | [app/phase7_verified.py](app/phase7_verified.py) |
+| 03 | **Auction with reservation lock** — 3 in parallel, only one can close | [app/auction.py](app/auction.py) |
+
+---
+
+## The 8-phase spine (+ 4 branches)
+
+```
+detected → mandate_issued → market_open → negotiating
+        → reserved → committed → verified → closed
+             ▲                        │
+             └──── resolved ◄── escalated ◄── renegotiating ◄── disrupted
+```
+
+Mandatory guards inside `advance()`:
+- `MARKET_OPEN` — at least 3 carriers (encodes R7)
+- `RESERVED` / `COMMITTED` — reservation lock held
+- `COMMITTED` — value ≤ ceiling
+- `VERIFIED` — at least one commitment anchored in audio (Pillar 02 invariant)
+- `CLOSED` — recap delivered (R3a)
+
+---
+
+## Requirements → code
+
+| ID | Requirement | Where |
+|---|---|---|
+| R1 | Real outbound over the phone network | `twilio_voice.dial_counterparty` |
+| R2 | Inbound understood and acted on | `POST /twiml/inbound` |
+| R3a | Written recap post-call | `phase7_verified.send_recap` + Resend |
+| R3b | Commitment tied to audio timestamp | `phase7_verified.anchor` |
+| R4 | Structured call brief | `AgentSession.close` |
+| R5 | Conversation and system consistent | `policy.gate_text` + `policy_events` |
+| R6 | Mid-call escalation without hanging up | `twilio_voice.join_human` (coach whisper) |
+| R7 | 3+ in parallel, auditable comparison | `auction.py` + `auction_quotes` |
+
+---
+
+## Proof
+
+```bash
+pytest tests/ -q       # 951 cases, <5s, zero ALLOW above ceiling
+```
+
+The invariant is the pitch: **no policy engine test ever authorizes a value above the mandate ceiling**, over ~800 parameterized adversarial asks.
+
+---
+
+## Run
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env                # fill in the blanks
+psql < db/schema.sql                # or Supabase SQL Editor
+psql < db/002_phases.sql
+python 00_smoke_test.py +55...      # gate 0: the phone has to ring
+uvicorn app.main:app --port 8000
+ngrok http --domain=YOUR.ngrok.app 8000
+```
+
+Twilio console: create a **TwiML App** pointing at `https://YOUR.ngrok.app/twiml/agent` and paste the SID into `TWIML_APP_SID`. On the purchased number, point "A call comes in" at `/twiml/inbound`.
+
+Rehearse without the phone:
+```bash
+python demo_driver.py --fast        # walks every phase, panel updates via Realtime
+```
+
+The agent speaks **English only**. See [FLIGHT_LOG.md](FLIGHT_LOG.md) for the reasoning behind every non-obvious decision.
