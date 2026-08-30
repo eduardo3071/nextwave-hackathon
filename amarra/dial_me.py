@@ -38,6 +38,9 @@ def main() -> int:
     ap.add_argument("--url", default="/twiml/inbound?demo=1",
                     help="path do TwiML (default: /twiml/inbound?demo=1 — "
                          "marca a chamada como 'outbound_demo' no painel)")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="valida admissão SEM discar (mesma ergonomia do "
+                         "dial_market.py --dry-run)")
     ap.add_argument("--watch", action="store_true",
                     help="acompanhar status até completar")
     args = ap.parse_args()
@@ -63,7 +66,23 @@ def main() -> int:
     print(f"origem ...... {from_number}")
     print(f"destino ..... {args.to}")
     print(f"TwiML URL ... {url}")
+    print(f"dry_run ..... {args.dry_run}")
     print("─" * 60)
+
+    if args.dry_run:
+        # bate no endpoint /demo/call-me com dry_run=true, mostra o resultado
+        import httpx, json as _json
+        r = httpx.post(
+            f"https://{host}{args.url.replace('/twiml/inbound?demo=1', '')}"
+            "/demo/call-me",
+            json={"to": args.to, "dry_run": True}, timeout=15,
+        )
+        print(f"\nstatus HTTP: {r.status_code}")
+        try:
+            print(_json.dumps(r.json(), indent=2, ensure_ascii=False))
+        except Exception:
+            print(r.text)
+        return 0 if r.status_code == 200 else 1
 
     try:
         call = client.calls.create(

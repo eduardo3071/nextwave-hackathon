@@ -4,6 +4,34 @@
 
 ---
 
+## 0 · Padrão de callback — o jurado NÃO precisa ter crédito internacional
+
+Como o número Twilio é US (`+18126253258`) e conseguir número BR leva dias na ANATEL, o modelo de teste é **callback**: quem quer experimentar entra o próprio telefone num input, clica um botão, e o Amarra liga pra ele. Custo zero pro visitante (receber chamada é grátis no BR).
+
+Isso vira o hero pattern do painel: **input + botão** em vez de um número decorado pra ligar.
+
+```
+┌─────────────────────────────────────┐
+│  Experimente o Amarra ao vivo       │
+│                                     │
+│  Seu telefone (E.164):              │
+│  ┌───────────────────────────────┐  │
+│  │ +55                          │  │
+│  └───────────────────────────────┘  │
+│                                     │
+│  [ 📞 Me liga em 3 segundos ]      │
+│                                     │
+│  A chamada é gratuita pra você.     │
+│  A Twilio paga, ~$0.03/min.         │
+└─────────────────────────────────────┘
+```
+
+Valida E.164 no input (regex `^\+[1-9]\d{7,14}$`), botão desabilitado até estar válido. Persist o número em `localStorage` (`amarra:my_phone`) pra o próximo teste já vir preenchido.
+
+**Ao clicar:** POST em `${VITE_BACKEND_URL}/demo/call-me` com body `{"to": "+55...", "dry_run": false}`. Antes disso, opcionalmente chama com `dry_run: true` pra confirmar que o backend está pronto.
+
+Se o backend retornar `warnings`, mostra em toast âmbar sem bloquear (ex: "mandato não emitido — o agente vai atender mas não vai negociar").
+
 ## 1 · Novo BOTÃO no topo do painel: "📞 Me liga"
 
 Grande, chamativo, sempre visível no topo da coluna principal. Estilo pill button, altura mínima 56px (touch-friendly).

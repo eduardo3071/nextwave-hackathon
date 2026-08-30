@@ -198,6 +198,82 @@ async def twiml_inbound(req: Request):
     return Response(content=tw.conference_twiml(conf), media_type="application/xml")
 
 
+@app.post("/demo/dial-market")
+async def demo_dial_market(req: Request):
+    """
+    Botão "Abrir Mercado (3)" do painel. Dispara os 3 carriers em paralelo.
+
+    Lê os 3 carriers de `carriers.json` (raiz do amarra/) por padrão. Aceita
+    override no body: {"carriers": [{"id","name","phone"}, ...],
+                       "operation_ref": "..."}
+
+    Auto-reseta a operação para 'mandate_issued' antes de discar — sem isso,
+    o segundo uso do botão bate no admit() com "operação está em
+    'negotiating'". Se você QUER preservar a operação anterior, passe
+    `{"reset": false}`.
+    """
+    from pathlib import Path
+    from app.phase3_market import open_market, OpenMarket, Carrier
+
+    body = await req.json() if await req.body() else {}
+    op_ref = body.get("operation_ref") or os.getenv("DEMO_OPERATION_REF",
+                                                     "MZO-GDL-4471")
+    should_reset = body.get("reset", True)
+
+    # 1 · carriers (override no body OU do carriers.json)
+    carriers = body.get("carriers")
+    if not carriers:
+        cfg_path = Path(__file__).resolve().parent.parent / "carriers.json"
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            carriers = cfg.get("carriers", [])
+        except Exception as e:
+            return JSONResponse(
+                {"error": f"carriers.json inválido ou ausente: {e}"}, 500)
+
+    # 2 · auto-reset
+    op = db.operation(op_ref)
+    if should_reset and op["phase"] != "mandate_issued":
+        _demo_reset(op["id"])
+        op = db.operation(op_ref)   # relê depois do update
+
+    # 3 · dispara /phase3/open
+    try:
+        req_obj = OpenMarket(
+            operation_ref=op_ref,
+            carriers=[Carrier(**c) for c in carriers],
+        )
+    except Exception as e:
+        return JSONResponse({"error": f"payload inválido: {e}"}, 422)
+
+    return await open_market(req_obj)
+
+
+@app.post("/demo/reset")
+async def demo_reset(operation_ref: str | None = None):
+    """
+    Devolve a operação de demo para 'mandate_issued' e limpa auction/calls.
+    Não recria mandato (o hash cunhado na fase 2 continua o mesmo).
+    Útil pra rodar o dial_market várias vezes seguidas.
+    """
+    ref = operation_ref or os.getenv("DEMO_OPERATION_REF", "MZO-GDL-4471")
+    op = db.operation(ref)
+    _demo_reset(op["id"])
+    return {"ok": True, "operation_ref": ref}
+
+
+def _demo_reset(operation_id: str) -> None:
+    """Limpa auction/calls e devolve a fase pra mandate_issued."""
+    # apaga em ordem (calls tem cascade via auction_id → auctions)
+    db.c.table("calls").delete().eq("operation_id", operation_id).execute()
+    db.c.table("auctions").delete().eq("operation_id", operation_id).execute()
+    db.c.table("phase_events").delete().eq("operation_id", operation_id).execute()
+    db.update("operations", operation_id,
+              {"phase": "mandate_issued", "phase_since": "now()",
+               "status": "open", "outcome": None, "closed_at": None})
+    print(f"[/demo/reset] operação {operation_id} devolvida a 'mandate_issued'")
+
+
 @app.post("/demo/call-me")
 async def demo_call_me(req: Request):
     """
@@ -207,20 +283,78 @@ async def demo_call_me(req: Request):
     roda igual, e a Twilio paga (do saldo) em vez da tarifa internacional
     da sua operadora.
 
-    Body JSON opcional: {"to": "+55...", "lang": "en"}
-    Devolve: {"call_sid": "CA...", "to": "...", "from": "..."}
+    Body JSON opcional:
+      {"to": "+55...", "lang": "en", "dry_run": true}
+
+    Com `dry_run: true` valida a admissão SEM discar (mesma ergonomia do
+    /demo/dial-market): confere que backend, número, host e operação estão
+    prontos, devolve o que FARIA.
+
+    Devolve (dry): {"dry_run": true, "admitted": bool, "to","from","url",
+                    "warnings":[...]}
+    Devolve (live): {"call_sid": "CA...", "to","from","url","status":"queued"}
     """
     body = await req.json() if await req.body() else {}
     to = body.get("to") or os.getenv("SUPERVISOR_PHONE")
+    dry_run = bool(body.get("dry_run"))
+
     if not to:
         return JSONResponse(
             {"error": "SUPERVISOR_PHONE não configurado no .env; "
                       "passe 'to' no body"}, 422)
 
-    from_number = os.environ["TWILIO_PHONE_NUMBER"]
-    host = os.environ["PUBLIC_HOST"]
+    from_number = os.getenv("TWILIO_PHONE_NUMBER")
+    host = os.getenv("PUBLIC_HOST")
+    if not from_number or not host:
+        return JSONResponse(
+            {"error": "TWILIO_PHONE_NUMBER ou PUBLIC_HOST faltando no .env"},
+            422)
+
     url = f"https://{host}/twiml/inbound?demo=1"
 
+    # ── validações de admissão (bate quase igual ao /phase3/open) ──────────
+    warnings: list[str] = []
+    op_ref = os.getenv("DEMO_OPERATION_REF", "MZO-GDL-4471")
+    try:
+        op = db.operation(op_ref)
+    except Exception as e:
+        return JSONResponse(
+            {"error": f"operação '{op_ref}' não encontrada no banco: {e}"}, 422)
+
+    try:
+        mandate = db.mandate(op["id"])
+        if not mandate.get("mandate_hash"):
+            warnings.append(
+                "mandato não emitido — a NegotiationSession vai recusar "
+                "abrir. Rode POST /phase2/issue/{op_id} antes.")
+    except Exception:
+        warnings.append("mandate row ausente; a chamada vai crashar no /ws")
+
+    import re
+    E164 = re.compile(r"^\+[1-9]\d{7,14}$")
+    if not E164.match(to):
+        return JSONResponse(
+            {"error": f"'{to}' não é E.164 (esperado +55XXXXXXXXXXX)"}, 422)
+    if to == from_number:
+        return JSONResponse(
+            {"error": "TO e FROM são o mesmo número — a Twilio recusa"}, 422)
+
+    # ── dry-run: para aqui e devolve o preview ─────────────────────────────
+    if dry_run:
+        return {
+            "dry_run": True,
+            "admitted": True,
+            "to": to,
+            "from": from_number,
+            "url": url,
+            "operation_ref": op_ref,
+            "operation_phase": op["phase"],
+            "mandate_hash": mandate.get("mandate_hash") if 'mandate' in dir() else None,
+            "warnings": warnings,
+            "cost_estimate_usd_per_min": 0.03,
+        }
+
+    # ── live: dispara de verdade ───────────────────────────────────────────
     from twilio.base.exceptions import TwilioRestException
     try:
         call = tw.client.calls.create(
@@ -230,7 +364,7 @@ async def demo_call_me(req: Request):
         return JSONResponse({"error": f"{e.code}: {e.msg}"}, 400)
 
     return {"call_sid": call.sid, "to": to, "from": from_number,
-            "url": url, "status": "queued"}
+            "url": url, "status": "queued", "warnings": warnings}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
