@@ -197,6 +197,13 @@ function Dashboard() {
       {isMobile ? (
         <main className="mx-auto w-full max-w-[430px] space-y-5 px-4 py-4">
           <CallDock calls={calls} big={!operation} />
+          <MarketDock
+            phase={phase}
+            calls={calls}
+            carriers={carriers}
+            onUpdateCarriers={update}
+          />
+
 
           {!operation ? (
             <section className="panel rounded-md px-4 py-10 text-center">
