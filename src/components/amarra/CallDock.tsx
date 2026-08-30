@@ -69,6 +69,7 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
     const live = calls.filter(
       (c) => c.direction === "inbound" && ACTIVE.has(String(c.status)) && fresh(c),
     );
+    console.log("DOCK", JSON.stringify(calls.filter(c=>c.direction==="inbound").map(c=>[c.status,c.created_at,c.answered_at,fresh(c)])));
     return live.length ? live[live.length - 1] : null;
   }, [calls]);
 
