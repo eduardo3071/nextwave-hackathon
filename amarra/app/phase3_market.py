@@ -56,7 +56,7 @@ class Carrier(BaseModel):
     id: str = Field(..., min_length=2)
     name: str
     phone: str
-    language: str = "es-MX"
+    language: str = "en-US"
 
     @field_validator("phone")
     @classmethod

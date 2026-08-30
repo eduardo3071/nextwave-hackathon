@@ -30,6 +30,8 @@ from app.phases import Phase, PhaseError, advance
 router = APIRouter(prefix="/phase5", tags=["fase 5 · reserved"])
 
 CONFIRM_TIMEOUT_S = 45      # reservou e não confirmou nesse prazo → devolve o lock
+GOODBYE_EN = ("I appreciate your time. On this shipment we'll close with "
+              "another option, but let's stay in touch for the next one.")
 GOODBYE_ES = ("Le agradezco el tiempo. Por esta carga vamos a cerrar con otra "
               "opción, pero seguimos en contacto para la próxima.")
 GOODBYE_PT = ("Agradeço o tempo. Nesta carga vamos fechar com outra opção, "
@@ -157,7 +159,8 @@ async def _release_loser(call_id: str) -> None:
     call = db.get("calls", call_id)
     try:
         if sess and not sess.closed:
-            fala = GOODBYE_PT if (call.get("language") or "").startswith("pt") else GOODBYE_ES
+            lang = (call.get("language") or "en")[:2]
+            fala = {"pt": GOODBYE_PT, "es": GOODBYE_ES}.get(lang, GOODBYE_EN)
             sess.state.approved_utterances.add(fala)
             await sess._say(fala, approved=True)
             await asyncio.sleep(3.5)          # deixa a frase terminar

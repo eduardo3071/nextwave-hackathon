@@ -178,7 +178,7 @@ async def twiml_agent(req: Request):
     form = await req.form()
     conf = q.get("conf") or form.get("conf")
     call_id = q.get("call_id") or form.get("call_id")
-    lang = q.get("lang") or form.get("lang") or "es-MX"
+    lang = q.get("lang") or form.get("lang") or "en-US"
     if not conf or not call_id:
         print(f"[/twiml/agent] parâmetros faltando: conf={conf!r} call_id={call_id!r}")
         # Não embute "None" no TwiML — pendura educado em vez de deixar a

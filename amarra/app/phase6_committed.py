@@ -132,47 +132,77 @@ def _fmt_money(v: str, currency: str, lang: str) -> str:
     return f"{n.quantize(Decimal('1')):,.0f} {unidade}".replace(",", ".")
 
 
+DAYS = {
+    "en": ["Monday", "Tuesday", "Wednesday", "Thursday",
+           "Friday", "Saturday", "Sunday"],
+    "es": ["lunes", "martes", "miércoles", "jueves",
+           "viernes", "sábado", "domingo"],
+    "pt": ["segunda", "terça", "quarta", "quinta",
+           "sexta", "sábado", "domingo"],
+}
+
+
+def _lang_key(lang: str) -> str:
+    """en | es | pt — English é o default do produto."""
+    if not lang:
+        return "en"
+    p = lang[:2].lower()
+    return p if p in ("en", "es", "pt") else "en"
+
+
 def _fmt_when(iso: str, lang: str) -> str:
     try:
         dt = datetime.fromisoformat(str(iso))
     except ValueError:
         return str(iso)
-    dias_es = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
-    dias_pt = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
-    dia = (dias_pt if lang.startswith("pt") else dias_es)[dt.weekday()]
-    return f"{dia} {dt.strftime('%H:%M')}"
+    days = DAYS.get(_lang_key(lang), DAYS["en"])
+    return f"{days[dt.weekday()]} {dt.strftime('%H:%M')}"
 
 
 def build_read_back(slots: dict, *, currency: str, lang: str) -> str:
-    es = not lang.startswith("pt")
+    L = _lang_key(lang)
     partes = []
     if "rate" in slots:
         partes.append(_fmt_money(slots["rate"]["value"], currency, lang))
     if "pickup_at" in slots:
         quando = _fmt_when(slots["pickup_at"]["value"], lang)
-        partes.append(f"recolección {quando}" if es else f"coleta {quando}")
+        prefix = {"en": "pickup", "es": "recolección", "pt": "coleta"}[L]
+        partes.append(f"{prefix} {quando}")
     if "equipment" in slots:
         partes.append(str(slots["equipment"]["value"]))
     if "driver" in slots:
-        cond = "chofer" if es else "motorista"
+        cond = {"en": "driver", "es": "chofer", "pt": "motorista"}[L]
         partes.append(f"{cond} {slots['driver']['value']}")
 
     corpo = ", ".join(partes)
-    if es:
+    if L == "es":
         return (f"Le repito para confirmar: {corpo}. "
                 f"¿Es correcto? Necesito un sí explícito para cerrarlo.")
-    return (f"Vou repetir para confirmar: {corpo}. "
-            f"Está correto? Preciso de um sim explícito para fechar.")
+    if L == "pt":
+        return (f"Vou repetir para confirmar: {corpo}. "
+                f"Está correto? Preciso de um sim explícito para fechar.")
+    return (f"Let me confirm: {corpo}. "
+            f"Is that correct? I need an explicit yes to close.")
 
 
 def ask_missing(faltando: list[str], lang: str) -> str:
-    es = not lang.startswith("pt")
-    nomes = {"rate": ("el monto", "o valor"),
-             "pickup_at": ("la fecha y hora de recolección", "a data e hora da coleta")}
-    itens = [nomes[f][0 if es else 1] for f in faltando]
-    lista = (" y " if es else " e ").join(itens) if len(itens) > 1 else itens[0]
-    return (f"Antes de cerrar me falta {lista}. ¿Me lo confirma?" if es
-            else f"Antes de fechar falta {lista}. Pode confirmar?")
+    L = _lang_key(lang)
+    nomes = {
+        "rate":      {"en": "the amount",
+                      "es": "el monto",
+                      "pt": "o valor"},
+        "pickup_at": {"en": "the pickup date and time",
+                      "es": "la fecha y hora de recolección",
+                      "pt": "a data e hora da coleta"},
+    }
+    itens = [nomes[f][L] for f in faltando]
+    join_word = {"en": " and ", "es": " y ", "pt": " e "}[L]
+    lista = join_word.join(itens) if len(itens) > 1 else itens[0]
+    if L == "es":
+        return f"Antes de cerrar me falta {lista}. ¿Me lo confirma?"
+    if L == "pt":
+        return f"Antes de fechar falta {lista}. Pode confirmar?"
+    return f"Before closing I still need {lista}. Can you confirm?"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -200,7 +230,7 @@ class ReadBack:
         """
         self.slots = collect_slots(self.s.call_id)
         faltando = missing_material(self.slots)
-        lang = self.s.call.get("language") or "es-MX"
+        lang = self.s.call.get("language") or "en-US"
 
         if faltando:
             frase = ask_missing(faltando, lang)
@@ -265,10 +295,12 @@ class ReadBack:
 
         if outcome == "rejected":
             self.active = False
-            lang = self.s.call.get("language") or "es-MX"
-            frase = ("Perfecto, corrijamos. ¿Cuál es el dato correcto?"
-                     if not lang.startswith("pt")
-                     else "Perfeito, vamos corrigir. Qual é o dado correto?")
+            L = _lang_key(self.s.call.get("language") or "en-US")
+            frase = {
+                "en": "Got it, let's fix that. What's the correct value?",
+                "es": "Perfecto, corrijamos. ¿Cuál es el dato correcto?",
+                "pt": "Perfeito, vamos corrigir. Qual é o dado correto?",
+            }[L]
             self.s.state.approved_utterances.add(frase)
             await self.s._say(frase, approved=True)
             for c in self.slots.values():
@@ -356,10 +388,12 @@ async def commit_operation(session, slots: dict) -> None:
         await session._escalate(f"commit_guard_failed:{e}")
         return
 
-    lang = session.call.get("language") or "es-MX"
-    fecho = ("Cerrado. Le mando ahora mismo la confirmación por escrito. Gracias."
-             if not lang.startswith("pt")
-             else "Fechado. Já te mando a confirmação por escrito. Obrigado.")
+    L = _lang_key(session.call.get("language") or "en-US")
+    fecho = {
+        "en": "Closed. I'll send you the written confirmation right now. Thank you.",
+        "es": "Cerrado. Le mando ahora mismo la confirmación por escrito. Gracias.",
+        "pt": "Fechado. Já te mando a confirmação por escrito. Obrigado.",
+    }[L]
     session.state.approved_utterances.add(fecho)
     await session._say(fecho, approved=True)
     session.actions.append({"t": session._ms(), "action": "committed",

@@ -233,7 +233,7 @@ class NegotiationSession:
         self.history.append({"role": "user", "content": text})
 
         # bônus B2: a contraparte trocou de idioma, o TTS acompanha
-        if lang and lang[:2] != (self.call.get("language") or "es")[:2]:
+        if lang and lang[:2] != (self.call.get("language") or "en")[:2]:
             await self._switch_language(lang)
 
         if self.escalated or self.closed:

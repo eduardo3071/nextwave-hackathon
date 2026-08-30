@@ -205,7 +205,7 @@ async def verify_call(call_id: str, recording_url: str) -> dict:
     """
     call = db.get("calls", call_id)
     op = db.get("operations", call["operation_id"])
-    lang = call.get("language") or "es-MX"
+    lang = call.get("language") or "en-US"
 
     audio = await fetch_recording(recording_url)
     words = await transcribe(audio)
