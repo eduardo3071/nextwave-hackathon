@@ -126,7 +126,12 @@ function DossierModal({ dossier, onClose }: { dossier: Dossier; onClose: () => v
   );
 }
 
+const MOBILE_TABS = ["transcript", "compromissos", "comparação", "escalação"] as const;
+type MobileTab = (typeof MOBILE_TABS)[number];
+
 function Dashboard() {
+  const isMobile = useIsMobile();
+  const [tab, setTab] = useState<MobileTab>("transcript");
   const state = useAmarraRealtime();
   const grouped = useByCall(state);
   const { carriers, update } = useCarriers();
