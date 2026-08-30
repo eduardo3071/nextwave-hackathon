@@ -69,14 +69,16 @@
   --color-agent: var(--agent);
   --font-mono: var(--font-mono-stack);
   --font-sans: var(--font-sans-stack);
+  --font-display: var(--font-display-stack);
 }
 
 /* Control-room theme: single dark palette, high contrast, no thin greys. */
 :root,
 .dark {
   --radius: 0.35rem;
-  --font-mono-stack: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-sans-stack: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+  --font-mono-stack: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans-stack: "Space Grotesk", system-ui, sans-serif;
+  --font-display-stack: "Chakra Petch", "Space Grotesk", system-ui, sans-serif;
 
   --background: oklch(0.30 0.115 285);
   --foreground: oklch(0.98 0.012 300);
@@ -140,21 +142,45 @@
     color: var(--color-foreground);
     font-family: var(--font-sans-stack);
     font-variant-numeric: tabular-nums;
+    font-feature-settings: "ss01", "cv01";
+    letter-spacing: 0.005em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display-stack);
+    font-weight: 700;
     letter-spacing: 0.01em;
+  }
+
+  button {
+    font-family: var(--font-display-stack);
+    letter-spacing: 0.04em;
   }
 }
 
 @utility num {
   font-family: var(--font-mono-stack);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  font-feature-settings: "zero" 1, "ss02" 1;
+  letter-spacing: -0.015em;
+}
+
+@utility display {
+  font-family: var(--font-display-stack);
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 @utility label-caps {
-  font-family: var(--font-mono-stack);
+  font-family: var(--font-display-stack);
   text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--muted-foreground);
 }
