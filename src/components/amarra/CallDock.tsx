@@ -91,7 +91,7 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
       if (c.direction !== "inbound") continue;
       if (seenInbound.current.has(c.id)) continue;
       seenInbound.current.add(c.id);
-      if (!first && ACTIVE.has(String(c.status))) {
+      if (!first && ACTIVE.has(String(c.status)) && fresh(c)) {
         navigator.vibrate?.([200, 100, 200]);
         ring();
       }
