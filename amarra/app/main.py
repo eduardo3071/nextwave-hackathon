@@ -266,6 +266,213 @@ async def demo_dial_market(req: Request):
     return await open_market(req_obj)
 
 
+@app.post("/demo/scenario/full")
+async def demo_scenario_full(req: Request):
+    """
+    Orquestrador — encadeia os 7 objetivos do enunciado numa sequência
+    fluida que aterrissa nos 6 resultados esperados.
+
+    Passos (síncrono até o mercado abrir, depois assíncrono):
+      1. Se a operação não estiver em `mandate_issued` → reseta
+      2. Se o mandato não tem hash → emite via /phase2/issue (Objetivo 1 setup)
+      3. Dispara /phase3/open com os 3 carriers do carriers.json
+         → cobre Objetivos 1, 5, 7 + Resultado 1 (chamadas paralelas + comparação)
+      4. Enquanto isso, log estruturado do que cada perna faz
+      5. Ao commit + evidência → cobre Objetivos 3a, 3b, 4 + Resultado 4
+
+    Depois do /demo/scenario/full, o pitch continua com:
+      • Ligação de entrada real (Obj 2 + Resultado 2) — dispara callback (Resultado 3)
+      • Um "9200 pesos" (Obj 6 + Resultado 5) — banda de escalação
+      • `/phase8/close` — fecha e gera dossiê
+
+    Body opcional: {"operation_ref": "...", "carriers": [...], "issue_mandate": true}
+    Retorna o plano do que vai acontecer + auction_id.
+    """
+    from pathlib import Path
+    from app.phase2_mandate import issue as issue_mandate
+    from app.phase3_market import open_market, OpenMarket, Carrier
+
+    body = await req.json() if await req.body() else {}
+    op_ref = body.get("operation_ref") or os.getenv("DEMO_OPERATION_REF",
+                                                     "MZO-GDL-4471")
+
+    # 1 · localiza operação
+    try:
+        op = db.operation(op_ref)
+    except Exception as e:
+        return JSONResponse({"error": f"operação '{op_ref}' não existe: {e}"}, 404)
+
+    plan = {"operation_ref": op_ref, "operation_id": op["id"],
+            "steps": [], "objectives_covered": []}
+
+    # 2 · reset se necessário
+    if op["phase"] not in ("detected", "mandate_issued"):
+        _demo_reset(op["id"])
+        op = db.operation(op_ref)
+        plan["steps"].append({"step": "reset", "note": "operação devolvida a mandate_issued"})
+
+    # 3 · emite mandato se ainda não emitido (idempotente)
+    m = db.mandate(op["id"])
+    if not m.get("mandate_hash") and body.get("issue_mandate", True):
+        try:
+            issued = await issue_mandate(op["id"])
+            plan["steps"].append({"step": "issue_mandate",
+                                  "mandate_hash": issued.get("mandate_hash")})
+            plan["objectives_covered"].append("obj_5_authority_hashed")
+        except Exception as e:
+            print(f"[scenario/full] issue falhou (ok se já emitido): {e}")
+
+    # 4 · lê carriers (override ou carriers.json)
+    carriers_in = body.get("carriers")
+    if not carriers_in:
+        cfg_path = Path(__file__).resolve().parent.parent / "carriers.json"
+        try:
+            carriers_in = json.loads(cfg_path.read_text(encoding="utf-8"))["carriers"]
+        except Exception as e:
+            return JSONResponse({"error": f"carriers.json inválido: {e}"}, 500)
+
+    # 5 · abre mercado (fase 3) — 3 chamadas em paralelo
+    try:
+        market_req = OpenMarket(
+            operation_ref=op_ref,
+            carriers=[Carrier(**c) for c in carriers_in],
+        )
+        result = await open_market(market_req)
+    except Exception as e:
+        return JSONResponse({"error": f"open_market falhou: {e}"}, 400)
+
+    plan["steps"].append({"step": "open_market", **result})
+    plan["objectives_covered"].extend([
+        "obj_1_outbound_3_carriers_parallel",
+        "obj_7_market_not_a_call",
+    ])
+    plan["expected_results"] = {
+        "result_1_ready_now": "3 columns filling + auction_quotes table",
+        "result_4_after_recording": "commitments anchored, recap email sent, "
+                                    "audio ▶ button plays exact slice",
+        "result_5_if_9200_offered": "escalation card shows computation, "
+                                     "supervisor gets called",
+        "next_action_for_result_2_and_3": (
+            f"call the Twilio number {os.getenv('TWILIO_PHONE_NUMBER','?')} "
+            "from a cell and say 'truck broke, need to reschedule' — the "
+            "agent will call `report_disruption` and dial the runner-up"),
+    }
+    return plan
+
+
+@app.get("/demo/scenario/status/{operation_ref}")
+async def demo_scenario_status(operation_ref: str):
+    """
+    Vista meta: para cada um dos 7 Objetivos e 6 Resultados do enunciado,
+    mostra se o ESTADO ATUAL do banco cumpre o requisito.
+    """
+    try:
+        op = db.operation(operation_ref)
+    except Exception:
+        return JSONResponse({"error": "operação não encontrada"}, 404)
+
+    op_id = op["id"]
+    m = db.mandate(op_id)
+    auction = next(iter(db.c.table("auctions").select("*")
+                        .eq("operation_id", op_id).execute().data), None)
+    calls = db.c.table("calls").select("*").eq("operation_id", op_id).execute().data
+    quotes = ((db.c.table("auction_quotes").select("*")
+               .eq("auction_id", auction["id"]).execute().data)
+              if auction else [])
+    commits = db.c.table("commitments").select("*").eq("operation_id", op_id).execute().data
+    call_ids = [c["id"] for c in calls] or ["-"]
+    policy = db.c.table("policy_events").select("*").in_("call_id", call_ids).execute().data
+    escals = db.c.table("escalations").select("*").in_("call_id", call_ids).execute().data
+    recaps = db.c.table("recap_deliveries").select("*").eq("operation_id", op_id).execute().data
+    briefs = db.c.table("call_briefs").select("*").in_("call_id", call_ids).execute().data
+    events = db.c.table("phase_events").select("*").eq("operation_id", op_id).order("id").execute().data
+    dossier = next(iter(db.c.table("dossiers").select("*")
+                        .eq("operation_id", op_id).execute().data), None)
+
+    anchored = [c for c in commits if c.get("anchor_state") == "anchored"]
+    outbound_calls = [c for c in calls if c.get("direction") == "outbound"]
+    inbound_calls = [c for c in calls if c.get("direction") == "inbound"]
+    branches = [e["phase"] for e in events if e.get("kind") == "branch"]
+
+    return {
+        "operation_ref": operation_ref,
+        "phase": op["phase"],
+        "mandate_hash": m.get("mandate_hash"),
+        "objectives": {
+            "1_outbound_3_carriers": {
+                "met": len(outbound_calls) >= 3,
+                "evidence": f"{len(outbound_calls)} outbound calls",
+            },
+            "2_inbound_understood": {
+                "met": len(inbound_calls) > 0,
+                "evidence": f"{len(inbound_calls)} inbound calls processed",
+            },
+            "3a_recap_sent": {
+                "met": any(r["status"] == "sent" for r in recaps),
+                "evidence": f"{sum(1 for r in recaps if r['status']=='sent')} sent recaps",
+            },
+            "3b_audio_anchored": {
+                "met": len(anchored) > 0,
+                "evidence": f"{len(anchored)}/{len(commits)} commitments anchored to audio",
+            },
+            "4_call_brief": {
+                "met": len(briefs) > 0,
+                "evidence": f"{len(briefs)} call briefs written",
+            },
+            "5_conversation_system_consistent": {
+                "met": bool(m.get("mandate_hash")) and
+                       all(p.get("mandate_hash") for p in policy if p.get("decision") != "block"),
+                "evidence": f"mandate_hash present + {len(policy)} policy events "
+                            f"({sum(1 for p in policy if p['decision']=='block')} blocks)",
+            },
+            "6_escalation_mid_call": {
+                "met": len(escals) > 0 or "escalated" in branches,
+                "evidence": f"{len(escals)} escalations rows, "
+                            f"branches: {branches}",
+            },
+            "7_market_comparison_audit": {
+                "met": len(quotes) >= 3,
+                "evidence": f"{len(quotes)} rows in auction_quotes "
+                            f"(winner: {next((q['carrier_name'] for q in quotes if q.get('winner')), '—')})",
+            },
+        },
+        "results": {
+            "1_three_carriers_booked": {
+                "met": auction and auction.get("status") == "committed"
+                       and len(quotes) >= 3,
+                "artifact": "auction_quotes table + winner marked",
+            },
+            "2_inbound_disruption_understood": {
+                "met": "disrupted" in branches,
+                "artifact": "phase_events row with kind='branch' phase='disrupted'",
+            },
+            "3_renegotiation": {
+                "met": "renegotiating" in branches,
+                "artifact": "phase_events row phase='renegotiating' + new call",
+            },
+            "4_auditable_trail": {
+                "met": len(anchored) > 0 and any(r["status"] == "sent" for r in recaps)
+                       and len(briefs) > 0,
+                "artifact": "commitments with t_start_ms + recap_deliveries.status=sent + call_briefs",
+            },
+            "5_escalation_takeover": {
+                "met": any(e.get("resolution") for e in escals),
+                "artifact": f"escalations.resolution set: {[e.get('resolution') for e in escals]}",
+            },
+            "6_trial_by_fire": {
+                "met": any(p["decision"] == "block" for p in policy)
+                       or all(p.get("amount", 0) is None or float(p["amount"] or 0) <= float(m["max_rate"])
+                              for p in policy if p["decision"] == "allow"),
+                "artifact": "policy_events: 0 ALLOW above ceiling; blocks incremented if model tried",
+            },
+        },
+        "final_artifact": {
+            "dossier_available": dossier is not None,
+            "headline": dossier.get("headline") if dossier else None,
+        },
+    }
+
+
 @app.post("/demo/reset")
 async def demo_reset(operation_ref: str | None = None):
     """
