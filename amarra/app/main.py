@@ -132,7 +132,16 @@ async def auction_start(req: Request):
 # ═══════════════════════════════════════════════════════════════════════════
 @app.post("/escalate/{call_id}")
 async def escalate(call_id: str, req: Request):
-    body = await req.json() if await req.body() else {}
+    raw = await req.body()
+    if raw:
+        try:
+            body = json.loads(raw)
+            if not isinstance(body, dict):
+                body = {}
+        except Exception:
+            body = {}
+    else:
+        body = {}
     sess: AgentSession | None = SESSIONS.get(call_id)
     call = db.get("calls", call_id)
 
@@ -232,7 +241,16 @@ async def demo_dial_market(req: Request):
     from pathlib import Path
     from app.phase3_market import open_market, OpenMarket, Carrier
 
-    body = await req.json() if await req.body() else {}
+    raw = await req.body()
+    if raw:
+        try:
+            body = json.loads(raw)
+            if not isinstance(body, dict):
+                body = {}
+        except Exception:
+            body = {}
+    else:
+        body = {}
     op_ref = body.get("operation_ref") or os.getenv("DEMO_OPERATION_REF",
                                                      "MZO-GDL-4471")
     should_reset = body.get("reset", True)
@@ -292,7 +310,16 @@ async def demo_scenario_full(req: Request):
     from app.phase2_mandate import issue as issue_mandate
     from app.phase3_market import open_market, OpenMarket, Carrier
 
-    body = await req.json() if await req.body() else {}
+    raw = await req.body()
+    if raw:
+        try:
+            body = json.loads(raw)
+            if not isinstance(body, dict):
+                body = {}
+        except Exception:
+            body = {}
+    else:
+        body = {}
     op_ref = body.get("operation_ref") or os.getenv("DEMO_OPERATION_REF",
                                                      "MZO-GDL-4471")
 
@@ -487,7 +514,16 @@ async def demo_send_recap(operation_id: str, req: Request):
     """
     from app.phase7_verified import send_recap
 
-    body = await req.json() if await req.body() else {}
+    raw = await req.body()
+    if raw:
+        try:
+            body = json.loads(raw)
+            if not isinstance(body, dict):
+                body = {}
+        except Exception:
+            body = {}
+    else:
+        body = {}
     call_id = body.get("call_id")
     if not call_id:
         # última call da operação
@@ -516,7 +552,16 @@ async def demo_test_sms(req: Request):
     Body: {"to": "+5511...", "message": "..."}  (message opcional)
     Uso típico:  curl -X POST .../demo/test-sms -d '{"to":"+5511934843013"}'
     """
-    body = await req.json() if await req.body() else {}
+    raw = await req.body()
+    if raw:
+        try:
+            body = json.loads(raw)
+            if not isinstance(body, dict):
+                body = {}
+        except Exception:
+            body = {}
+    else:
+        body = {}
     to = body.get("to") or os.getenv("SUPERVISOR_PHONE")
     if not to:
         return JSONResponse({"error": "to faltando (ou setar SUPERVISOR_PHONE)"}, 422)
@@ -549,7 +594,16 @@ async def demo_test_email(req: Request):
     Padrões vêm do .env.
     """
     import httpx as _httpx
-    body = await req.json() if await req.body() else {}
+    raw = await req.body()
+    if raw:
+        try:
+            body = json.loads(raw)
+            if not isinstance(body, dict):
+                body = {}
+        except Exception:
+            body = {}
+    else:
+        body = {}
     to = body.get("to") or os.getenv("RECAP_TO")
     key = os.getenv("RESEND_API_KEY")
 
@@ -637,7 +691,16 @@ async def demo_call_me(req: Request):
                     "warnings":[...]}
     Devolve (live): {"call_sid": "CA...", "to","from","url","status":"queued"}
     """
-    body = await req.json() if await req.body() else {}
+    raw = await req.body()
+    if raw:
+        try:
+            body = json.loads(raw)
+            if not isinstance(body, dict):
+                body = {}
+        except Exception:
+            body = {}
+    else:
+        body = {}
     to = body.get("to") or os.getenv("SUPERVISOR_PHONE")
     dry_run = bool(body.get("dry_run"))
 
