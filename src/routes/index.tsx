@@ -175,56 +175,48 @@ function Dashboard() {
   const run = (path: string, body?: unknown, ok?: string) => () =>
     void callBackend(path, body, ok);
 
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <TopBar
-        operation={operation}
-        mandate={mandate}
-        policyBlocks={policyBlocks}
-        anchored={anchored}
-        hasDossier={!!dossier}
-        onOpenDossier={() => setShowDossier(true)}
-      />
+  if (isMobile) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background text-foreground">
+        <MobileHeader
+          operation={operation}
+          mandate={mandate}
+          policyBlocks={policyBlocks}
+          anchored={anchored}
+          hasDossier={!!dossier}
+          onOpenDossier={() => setShowDossier(true)}
+        />
 
-      <PhaseRail
-        operation={operation}
-        phaseEvents={phaseEvents}
-        onOpenEscalation={() => {
-          document.getElementById("amarra-escalation")?.scrollIntoView({ behavior: "smooth" });
-        }}
-      />
-
-      {isMobile ? (
-        <main className="mx-auto w-full max-w-[430px] space-y-5 px-4 py-4">
-          <CallDock calls={calls} big={!operation} />
-          <MarketDock
-            phase={phase}
-            calls={calls}
-            carriers={carriers}
-            onUpdateCarriers={update}
+        <main className="mx-auto w-full max-w-[430px] flex-1 space-y-5 px-4 pt-4 pb-6">
+          <MobilePhaseStrip
+            operation={operation}
+            phaseEvents={phaseEvents}
+            onOpenEscalation={() => setTab("escalação")}
           />
 
+          <CallDock calls={calls} big={!operation} />
+          <MarketDock phase={phase} calls={calls} carriers={carriers} onUpdateCarriers={update} />
 
           {!operation ? (
-            <section className="panel rounded-md px-4 py-10 text-center">
-              <div className="text-4xl">📦</div>
-              <div className="mt-3 text-lg font-bold">Nenhuma operação</div>
-              <div className="num mt-1 text-sm text-muted-foreground">
-                Aguardando descarga do primeiro contêiner
+            <section className="rounded-2xl border border-border bg-card/60 px-5 py-12 text-center">
+              <div className="text-3xl">📦</div>
+              <div className="mt-3 text-base font-bold">Nenhuma operação viva</div>
+              <div className="num mt-1 text-xs text-muted-foreground">
+                a sala acende sozinha quando o backend escreve a primeira linha
               </div>
             </section>
           ) : (
             <>
-              <div className="flex gap-1 overflow-x-auto">
+              <div className="flex gap-1 rounded-full border border-border bg-card/60 p-1">
                 {MOBILE_TABS.map((t) => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => setTab(t)}
-                    className={`num shrink-0 rounded border-2 px-3 py-2 text-xs font-bold uppercase ${
+                    className={`num min-w-0 flex-1 truncate rounded-full px-2 py-2 text-[11px] font-bold tracking-wide uppercase transition ${
                       tab === t
-                        ? "border-accent text-accent"
-                        : "border-border text-muted-foreground"
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {t}
