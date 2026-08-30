@@ -24,8 +24,8 @@
     ]
   },
   "carriers": [
-    { "id": "fletes-bajio",   "name": "Fletes del Bajío",  "phone": "+55XXXXXXXXXXX" },
-    { "id": "transportes-ruiz","name": "Transportes Ruiz",  "phone": "+55XXXXXXXXXXX" },
-    { "id": "autolineas-mx",  "name": "Autolíneas MX",     "phone": "+55XXXXXXXXXXX" }
+    { "id": "fletes-bajio",    "name": "Fletes del Bajío",  "phone": "+5511959336644" },
+    { "id": "transportes-ruiz","name": "Transportes Ruiz",  "phone": "+5511997039489" },
+    { "id": "autolineas-mx",   "name": "Autolíneas MX",     "phone": "+5511934843013" }
   ]
 }

@@ -198,6 +198,82 @@ async def twiml_inbound(req: Request):
     return Response(content=tw.conference_twiml(conf), media_type="application/xml")
 
 
+@app.post("/demo/dial-market")
+async def demo_dial_market(req: Request):
+    """
+    Botão "Abrir Mercado (3)" do painel. Dispara os 3 carriers em paralelo.
+
+    Lê os 3 carriers de `carriers.json` (raiz do amarra/) por padrão. Aceita
+    override no body: {"carriers": [{"id","name","phone"}, ...],
+                       "operation_ref": "..."}
+
+    Auto-reseta a operação para 'mandate_issued' antes de discar — sem isso,
+    o segundo uso do botão bate no admit() com "operação está em
+    'negotiating'". Se você QUER preservar a operação anterior, passe
+    `{"reset": false}`.
+    """
+    from pathlib import Path
+    from app.phase3_market import open_market, OpenMarket, Carrier
+
+    body = await req.json() if await req.body() else {}
+    op_ref = body.get("operation_ref") or os.getenv("DEMO_OPERATION_REF",
+                                                     "MZO-GDL-4471")
+    should_reset = body.get("reset", True)
+
+    # 1 · carriers (override no body OU do carriers.json)
+    carriers = body.get("carriers")
+    if not carriers:
+        cfg_path = Path(__file__).resolve().parent.parent / "carriers.json"
+        try:
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            carriers = cfg.get("carriers", [])
+        except Exception as e:
+            return JSONResponse(
+                {"error": f"carriers.json inválido ou ausente: {e}"}, 500)
+
+    # 2 · auto-reset
+    op = db.operation(op_ref)
+    if should_reset and op["phase"] != "mandate_issued":
+        _demo_reset(op["id"])
+        op = db.operation(op_ref)   # relê depois do update
+
+    # 3 · dispara /phase3/open
+    try:
+        req_obj = OpenMarket(
+            operation_ref=op_ref,
+            carriers=[Carrier(**c) for c in carriers],
+        )
+    except Exception as e:
+        return JSONResponse({"error": f"payload inválido: {e}"}, 422)
+
+    return await open_market(req_obj)
+
+
+@app.post("/demo/reset")
+async def demo_reset(operation_ref: str | None = None):
+    """
+    Devolve a operação de demo para 'mandate_issued' e limpa auction/calls.
+    Não recria mandato (o hash cunhado na fase 2 continua o mesmo).
+    Útil pra rodar o dial_market várias vezes seguidas.
+    """
+    ref = operation_ref or os.getenv("DEMO_OPERATION_REF", "MZO-GDL-4471")
+    op = db.operation(ref)
+    _demo_reset(op["id"])
+    return {"ok": True, "operation_ref": ref}
+
+
+def _demo_reset(operation_id: str) -> None:
+    """Limpa auction/calls e devolve a fase pra mandate_issued."""
+    # apaga em ordem (calls tem cascade via auction_id → auctions)
+    db.c.table("calls").delete().eq("operation_id", operation_id).execute()
+    db.c.table("auctions").delete().eq("operation_id", operation_id).execute()
+    db.c.table("phase_events").delete().eq("operation_id", operation_id).execute()
+    db.update("operations", operation_id,
+              {"phase": "mandate_issued", "phase_since": "now()",
+               "status": "open", "outcome": None, "closed_at": None})
+    print(f"[/demo/reset] operação {operation_id} devolvida a 'mandate_issued'")
+
+
 @app.post("/demo/call-me")
 async def demo_call_me(req: Request):
     """
