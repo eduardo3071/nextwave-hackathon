@@ -275,6 +275,13 @@ function Dashboard() {
       <main className="grid gap-4 px-5 py-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="min-w-0 space-y-4">
           <CallDock calls={calls} />
+          <MarketDock
+            phase={phase}
+            calls={calls}
+            carriers={carriers}
+            onUpdateCarriers={update}
+          />
+
           <section className="grid gap-3 lg:grid-cols-3">
             {counterpartyCalls.length === 0 ? (
               <div className="panel num rounded-md px-3 py-6 text-sm text-muted-foreground lg:col-span-3">
