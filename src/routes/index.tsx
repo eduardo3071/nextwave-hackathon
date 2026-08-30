@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CallColumn } from "@/components/amarra/CallColumn";
+import { MarketDock } from "@/components/amarra/MarketDock";
+
 import { CallDock } from "@/components/amarra/CallDock";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CommitmentsList } from "@/components/amarra/CommitmentsList";
