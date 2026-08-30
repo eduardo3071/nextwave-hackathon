@@ -69,6 +69,7 @@
   --color-agent: var(--agent);
   --font-mono: var(--font-mono-stack);
   --font-sans: var(--font-sans-stack);
+  --font-display: var(--font-display-stack);
 }
 
 /* Control-room theme: single dark palette, high contrast, no thin greys. */
