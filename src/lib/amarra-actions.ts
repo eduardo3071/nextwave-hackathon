@@ -12,7 +12,7 @@ export async function callBackend(
   okMessage?: string,
 ): Promise<boolean> {
   if (!backendUrl) {
-    toast.error("VITE_BACKEND_URL não está configurado");
+    toast.error("BACKEND_URL ou VITE_BACKEND_URL não está configurado");
     return false;
   }
   try {
