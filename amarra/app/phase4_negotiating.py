@@ -435,8 +435,8 @@ class NegotiationSession:
                 quiet = time.monotonic() - self.last_input_at
 
                 if quiet > SILENCE_HANGUP_S and self.nudges >= SILENCE_MAX_NUDGES:
-                    await self._say("Parece que se cortó. Le mando el resumen por "
-                                    "escrito y quedo al pendiente. Gracias.",
+                    await self._say("Looks like we lost the line. I'll send you the summary in "
+                                    "writing and stay on standby. Thank you.",
                                     approved=True)
                     await self._close_call("silence_timeout")
                     return
@@ -444,8 +444,8 @@ class NegotiationSession:
                 if quiet > SILENCE_NUDGE_S and self.nudges < SILENCE_MAX_NUDGES:
                     self.nudges += 1
                     self.last_input_at = time.monotonic()
-                    await self._say("¿Sigue en la línea?" if self.nudges == 1
-                                    else "¿Me escucha bien?", approved=True)
+                    await self._say("Are you still on the line?" if self.nudges == 1
+                                    else "Can you hear me all right?", approved=True)
                     self.actions.append({"t": self._ms(), "action": "silence_nudge",
                                          "n": self.nudges})
         except asyncio.CancelledError:
@@ -456,7 +456,7 @@ class NegotiationSession:
         if self.escalated:
             return
         self.escalated = True
-        await self._say("Permítame un momento, voy a poner a mi supervisor en la línea.",
+        await self._say("One moment please, I'm bringing my supervisor onto the line.",
                         approved=True)
         try:
             async with httpx.AsyncClient(timeout=15) as c:
