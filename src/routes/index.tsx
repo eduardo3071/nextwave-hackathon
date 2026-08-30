@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CallColumn } from "@/components/amarra/CallColumn";
+import { CallDock } from "@/components/amarra/CallDock";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { CommitmentsList } from "@/components/amarra/CommitmentsList";
 import { EscalationPanel } from "@/components/amarra/EscalationPanel";
 import { PhaseRail } from "@/components/amarra/PhaseRail";
@@ -124,7 +126,12 @@ function DossierModal({ dossier, onClose }: { dossier: Dossier; onClose: () => v
   );
 }
 
+const MOBILE_TABS = ["transcript", "compromissos", "comparação", "escalação"] as const;
+type MobileTab = (typeof MOBILE_TABS)[number];
+
 function Dashboard() {
+  const isMobile = useIsMobile();
+  const [tab, setTab] = useState<MobileTab>("transcript");
   const state = useAmarraRealtime();
   const grouped = useByCall(state);
   const { carriers, update } = useCarriers();
@@ -184,8 +191,87 @@ function Dashboard() {
         }}
       />
 
+      {isMobile ? (
+        <main className="mx-auto w-full max-w-[430px] space-y-5 px-4 py-4">
+          <CallDock calls={calls} big={!operation} />
+
+          {!operation ? (
+            <section className="panel rounded-md px-4 py-10 text-center">
+              <div className="text-4xl">📦</div>
+              <div className="mt-3 text-lg font-bold">Nenhuma operação</div>
+              <div className="num mt-1 text-sm text-muted-foreground">
+                Aguardando descarga do primeiro contêiner
+              </div>
+            </section>
+          ) : (
+            <>
+              <div className="flex gap-1 overflow-x-auto">
+                {MOBILE_TABS.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTab(t)}
+                    className={`num shrink-0 rounded border-2 px-3 py-2 text-xs font-bold uppercase ${
+                      tab === t
+                        ? "border-accent text-accent"
+                        : "border-border text-muted-foreground"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-4">
+                {tab === "transcript" &&
+                  (counterpartyCalls.length === 0 ? (
+                    <div className="panel num rounded-md px-3 py-6 text-sm text-muted-foreground">
+                      as colunas aparecem quando o leilão disca — uma por perna
+                    </div>
+                  ) : (
+                    counterpartyCalls.map((c) => (
+                      <CallColumn
+                        key={c.id}
+                        call={c}
+                        utterances={grouped.utterances.get(c.id) ?? []}
+                        policyEvents={grouped.policyEvents.get(c.id) ?? []}
+                        readBacks={grouped.readBacks.get(c.id) ?? []}
+                        currency={currency}
+                        isWinner={c.id === winnerCallId}
+                      />
+                    ))
+                  ))}
+                {tab === "compromissos" && (
+                  <>
+                    <CommitmentsList commitments={commitments} />
+                    <RecapCard
+                      recaps={recaps}
+                      dossier={dossier}
+                      onOpenDossier={() => setShowDossier(true)}
+                    />
+                  </>
+                )}
+                {tab === "comparação" && (
+                  <QuoteTable quotes={quotes} auction={auction} currency={currency} />
+                )}
+                {tab === "escalação" && (
+                  <>
+                    <EscalationPanel
+                      escalations={escalations}
+                      currency={currency}
+                      live={phase === "escalated" || escalations.some((e) => !e.resolution)}
+                    />
+                    <PhaseTimeline events={phaseEvents} />
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </main>
+      ) : (
       <main className="grid gap-4 px-5 py-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="min-w-0 space-y-4">
+          <CallDock calls={calls} />
           <section className="grid gap-3 lg:grid-cols-3">
             {counterpartyCalls.length === 0 ? (
               <div className="panel num rounded-md px-3 py-6 text-sm text-muted-foreground lg:col-span-3">
@@ -252,6 +338,8 @@ function Dashboard() {
           )}
         </aside>
       </main>
+      )}
+
 
       <footer className="sticky bottom-0 z-30 border-t border-border bg-background/97 px-5 py-3 backdrop-blur">
         {!backendUrl && (
