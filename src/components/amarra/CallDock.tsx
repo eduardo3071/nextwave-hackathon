@@ -23,6 +23,12 @@ const secondsSince = (iso: string | null | undefined) =>
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
+/** A leg only counts as "on the line now" while it is recent; stale rows never
+ *  hold the banner hostage (the backend does not always write an end state). */
+const FRESH_MS = 15 * 60 * 1000;
+const fresh = (c: Call) =>
+  Date.now() - new Date(c.answered_at ?? c.started_at ?? c.created_at).getTime() < FRESH_MS;
+
 function ring() {
   try {
     const Ctx =
