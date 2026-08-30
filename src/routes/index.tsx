@@ -39,10 +39,11 @@ export const Route = createFileRoute("/")({
 });
 
 const DEFAULT_CARRIERS = [
-  { id: "fletes-bajio", name: "Fletes del Bajío", phone: "+5511959366644" },
-  { id: "transportes-ruiz", name: "Transportes Ruiz", phone: "+5511997034894" },
-  { id: "autolineas-mx", name: "Autolíneas MX", phone: "+5511934843014" },
+  { id: "fletes-bajio", name: "Fletes del Bajío", phone: "+551195936644" },
+  { id: "transportes-ruiz", name: "Transportes Ruiz", phone: "+551199703489" },
+  { id: "autolineas-mx", name: "Autolíneas MX", phone: "+551193484301" },
 ];
+
 
 
 
