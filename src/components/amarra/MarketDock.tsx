@@ -110,8 +110,12 @@ export function MarketDock({
   return (
     <section className="space-y-2">
       {ready
-        ? pill(`🎯 Abrir mercado (${carriers.length})`, "vai discar pros 3 carriers · ~$0.20", "live", () =>
-            setSheet(true),
+        ? pill(
+            carriers.length ? `🎯 Abrir mercado (${carriers.length})` : "🎯 Abrir mercado",
+            "disca as transportadoras em paralelo",
+            "live",
+            () =>
+              setSheet(true),
           )
         : open
           ? pill("🔓 Mercado aberto", `${activeLegs} pernas ativas`, "idle")
@@ -148,6 +152,11 @@ export function MarketDock({
             </div>
 
             <div className="mt-3 space-y-3">
+              {carriers.length === 0 && !editing && (
+                <div className="num text-sm text-muted-foreground">
+                  as transportadoras configuradas no backend serão discadas em paralelo
+                </div>
+              )}
               {carriers.map((c, i) =>
                 editing ? (
                   <div key={i} className="flex flex-wrap gap-1">
@@ -175,8 +184,8 @@ export function MarketDock({
             </div>
 
             <div className="num mt-4 rounded border border-warn/50 bg-warn/10 px-3 py-2 text-xs text-warn">
-              ⚠️ {carriers.length} celulares vão tocar em ~2s. Se algum não atender, o watchdog fecha
-              em 45s.
+              ⚠️ {carriers.length ? `${carriers.length} celulares` : "os celulares"} vão tocar em ~2s.
+              Se algum não atender, o watchdog fecha em 45s.
             </div>
 
             {inlineError && (
