@@ -34,6 +34,7 @@ import time
 import uuid
 
 from fastapi import BackgroundTasks, FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from app import twilio_voice as tw
@@ -50,6 +51,20 @@ from app.phase7_verified import router as phase7_router, verify_call
 from app.phase8_closed import router as phase8_router
 
 app = FastAPI(title="Amarra")
+
+# CORS — o painel Lovable é servido de https://nextwave-hackathon.lovable.app
+# e faz fetch cross-origin pro nosso ngrok. Sem esse middleware, o browser
+# barra qualquer POST com "No 'Access-Control-Allow-Origin' header is present".
+# Modo hackathon: permissivo. Pra produção, restringir `allow_origins`.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,     # sem cookies; * exige credentials=False
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
+
 app.include_router(phase1_router)
 app.include_router(phase2_router)
 app.include_router(phase3_router)
