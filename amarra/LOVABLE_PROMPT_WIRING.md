@@ -35,7 +35,7 @@ Use o cliente Supabase já existente em `src/integrations/supabase/client.ts`. E
 | `read_backs` | cada tentativa de read-back da fase 6. `token`, `slots`, `spoken_text`, `response_text`, `outcome` (`confirmed`/`rejected`/`ambiguous`/`superseded`), `attempt`, `t_spoken_ms`, `t_response_ms` | filtra por `call_id` |
 | `commitments` | fatos acordados. `field` (`rate`/`pickup_at`/`equipment`/`driver`/`mc_number`), `value`, `quote`, `state` (`proposed`/`read_back`/`confirmed`), `anchor_state` (`pending`/`anchored`/`not_found`/`low_confidence`), `t_start_ms`, `t_end_ms`, `affirmation_t_start_ms`, `affirmation_t_end_ms`, `audio_url`, `confidence`, `anchor_method`, `mandate_hash` | filtra por `operation_id` |
 | `escalations` | humano na linha. `trigger`, `brief`, `computation` (jsonb com `option_on_time`/`option_late`/`delta`/`exceeds_mandate_by`), `human_joined_at`, `resolution` | filtra por `call_id` |
-| `recap_deliveries` | R3a. `channel` (`email`/`sms`), `target`, `subject`, `body`, `status` (`sent`/`failed`), `error` | filtra por `operation_id` |
+| `recap_deliveries` | R3a. `channel` (`email`), `target`, `subject`, `body`, `status` (`sent`/`failed`), `error` | filtra por `operation_id` |
 | `dossiers` | artefato final. `outcome`, `headline`, `financial`, `operational`, `timeline`, `commitments`, `comparison`, `escalations`, `mandate_hash` | 1:1 com `operations` |
 
 Para CADA tabela acima, `supabase.channel(...).on('postgres_changes', { event: '*', schema: 'public', table: '...' }, ...)`. Zero exceções.
@@ -274,7 +274,6 @@ Card no rodapé mostrando `recap_deliveries` filtrado por `operation_id`. Uma li
 
 ```
 ✉ email  →  {target}     [sent | failed]     {created_at}
-📱 sms   →  {target}     [sent | failed]     {created_at}
 ```
 
 Se `status = failed`, tooltip mostra `error`. Botão pequeno **"Reenviar"** que faz `POST ${VITE_BACKEND_URL}/phase7/verify/{call_id}` (reprocessa a evidência e dispara o recap de novo).

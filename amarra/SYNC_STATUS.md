@@ -41,11 +41,12 @@ Nenhum ponto do problema fica sem resposta.
 - **Novo:** tool `report_disruption` faz o LLM reagir a "meu caminhão quebrou" chamando `phase_disruption.handle_disruption`
 - **Estado:** ✅
 
-### R3a · Recap escrito (SMS/email) pós-chamada
+### R3a · Recap escrito (email) pós-chamada
 
-- **Código:** `phase7.send_recap` → Resend (email) + Twilio (SMS)
-- **Prova:** você acabou de rodar `/demo/recap/...` e a resposta foi `{email: sent, sms: failed}`. Row `status=sent` no email confirma. Fase 8 recusa fechar sem `recap_deliveries.status='sent'`.
-- **Estado:** ✅ (email); 🟨 (SMS US→BR filtrado por carriers — comportamento esperado, email é o canal confiável)
+- **Código:** `phase7.send_recap` → Resend (email)
+- **Prova:** você rodou `/demo/recap/...` e a resposta foi `{email: sent}`. Row `status=sent` em `recap_deliveries` confirma. Fase 8 recusa fechar sem `recap_deliveries.status='sent'`.
+- **Estado:** ✅
+- **Nota de escopo:** SMS foi descartado do produto. Enunciado diz "(SMS/e-mail)" com barra — email é canal suficiente e mais confiável globalmente. SMS US→BR é filtrado por carriers, WhatsApp Business seria alternativa mas requer aprovação Meta (fora do hackathon).
 
 ### R3b · Commitment ligado ao timestamp do áudio
 
@@ -155,8 +156,6 @@ Coisas que o código NÃO controla — dependem de config no console Twilio ou p
 | Item | Onde | Como fazer | Estado |
 |---|---|---|---|
 | **Geo permission Brasil** (voice) | Console → Voice → Settings → Geo Permissions | Marcar Brasil | ✅ (já fez) |
-| **Geo permission Brasil** (SMS) | Console → Messaging → Settings → Geo Permissions | Marcar Brasil | ⚠️ verificar |
-| **Number capability SMS** | Console → Phone Numbers → seu `+18126253258` → Capabilities | SMS habilitado | ⚠️ verificar (Twilio SMS US→BR frequentemente falha por carrier BR filtrar) |
 | **Number capability Voice** | mesma tela | Voice habilitado | ✅ |
 | **TwiML App SID** | Console → Voice → TwiML Apps → sua app | POST + URL `/twiml/agent` | ✅ (`AP7c9410d696822ea6a7c62002230b0b9f`) |
 | **Webhook do número** | Console → Phone Numbers → seu número → Voice Configuration | POST `/twiml/inbound` | ✅ |
@@ -166,13 +165,12 @@ Coisas que o código NÃO controla — dependem de config no console Twilio ou p
 
 | Item | O que resolve | Custo/tempo |
 |---|---|---|
-| **A2P 10DLC brand + campaign** | SMS pra US com melhor deliverability | Aprovação: 1-3 dias, ~$4/mês por brand + $2/mês por campaign |
 | **SHAKEN/STIR attestation** | Chamadas outbound aparecem como "Verified" no bina US | Auto-configurado no Twilio Trust Hub, leva algumas horas |
 | **Voice Integrity Registration** | Reduz spam labeling em US | Console → Trust Hub → Voice Integrity |
 | **Branded Calling** | Nome + logo no iPhone US caller ID | ~$150/mês + vetting corporativo |
 | **CNAM lookup** | Nome da empresa aparece em fixos US | Config no Trust Hub |
 | **Número BR** (para receber ligações locais) | Custo local pro caller BR | Requer CNPJ + ANATEL vetting, 3-15 dias úteis |
-| **WhatsApp Business API** | Recap por WhatsApp em vez de SMS (mais confiável no BR) | Aprovação Meta + Twilio Sender registration |
+| **WhatsApp Business API** | Canal adicional pra recap (opcional; email já cumpre R3a) | Aprovação Meta + Twilio Sender registration |
 
 ### Opcional pro pitch (marca ponto de defesa técnica)
 
@@ -206,9 +204,9 @@ Todos são **melhorias**, não obrigatórios pra passar nos 7 objetivos + 6 resu
 | **Seção 1** (dor endereçada) | 5 | 5 | 0 | 0 | 0 |
 | **Seção 2** (7 objetivos) | 7 | 3 | 4 | 0 | 0 |
 | **Seção 2** (trial by fire) | 4 | 1 | 3 | 0 | 0 |
-| **Seção 3** (6 resultados) | 6 | 0 | 5 | 1 (R3a SMS filtrado) | 0 |
+| **Seção 3** (6 resultados) | 6 | 1 (R4 email OK) | 5 | 0 | 0 |
 | **Bônus** | 2 | 0 | 2 | 0 | 0 |
-| **Twilio config** (crítico) | 7 | 5 | 1 | 1 (SMS BR) | 0 |
+| **Twilio config** (crítico) | 5 | 5 | 0 | 0 | 0 |
 | **Twilio config** (escala) | 7 | 0 | 0 | 0 | 7 (fora do escopo) |
 | **Extras** ("may include") | 4 | 0 | 0 | 0 | 4 |
 
@@ -242,7 +240,7 @@ Fase avança `mandate_issued → market_open → negotiating`. 3 cel tocam. **Co
 - Barge-in acontece se o jurado interromper — **cobre bônus 1**
 
 ### Minuto 8-10 · Consequência automática (fase 7)
-Aguarda 30-60s pós-desligamento. Webhook `/twilio/recording` baixa áudio, Deepgram transcreve, ancora compromissos, sobe MP3 pro Supabase Storage, manda recap email+SMS.
+Aguarda 30-60s pós-desligamento. Webhook `/twilio/recording` baixa áudio, Deepgram transcreve, ancora compromissos, sobe MP3 pro Supabase Storage, manda recap por email.
 Painel: contador ANCORADOS incrementa, botão ▶ toca trecho exato. **Cobre R3a, R3b, R4 + Resultado 4.**
 
 ### Minuto 10-14 · Inbound + Renegotiation
@@ -275,7 +273,7 @@ Status: 7/7 objetivos ✅ + 6/6 resultados ✅. Dossiê: um único JSON auditáv
 ## Ação recomendada pra você AGORA
 
 1. **Verifica Messaging Geo Permission Brasil** no Twilio (mesmo caminho de Voice, mas em Messaging → Settings)
-2. **Verifica que o número tem capability SMS habilitada** (Console → Phone Numbers → seu `+18126253258` → Capabilities)
+2. ~~Verifica capability SMS~~ — SMS removido do escopo, email é o canal único
 3. **Testa o `/demo/scenario/full`** (kickoff do mercado inteiro) — se o admit passar e os 3 celulares tocarem, você tem os 7 objetivos rodando em paralelo
 4. **Faz a chamada real end-to-end** seguindo o script do `DEMO_RUNBOOK.md` (Rodada 3A pra buy-it-now)
 5. **Roda `curl /demo/scenario/status/...`** — vê o placar em tempo real

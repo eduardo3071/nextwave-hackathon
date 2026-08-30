@@ -543,47 +543,6 @@ async def demo_send_recap(operation_id: str, req: Request):
     return {"operation_id": operation_id, "call_id": call_id, "delivery": result}
 
 
-@app.post("/demo/test-sms")
-async def demo_test_sms(req: Request):
-    """
-    Manda 1 SMS de teste via Twilio. Independente da lógica do Amarra —
-    só prova que a conta Twilio consegue enviar SMS pro número passado.
-
-    Body: {"to": "+5511...", "message": "..."}  (message opcional)
-    Uso típico:  curl -X POST .../demo/test-sms -d '{"to":"+5511934843013"}'
-    """
-    raw = await req.body()
-    if raw:
-        try:
-            body = json.loads(raw)
-            if not isinstance(body, dict):
-                body = {}
-        except Exception:
-            body = {}
-    else:
-        body = {}
-    to = body.get("to") or os.getenv("SUPERVISOR_PHONE")
-    if not to:
-        return JSONResponse({"error": "to faltando (ou setar SUPERVISOR_PHONE)"}, 422)
-    message = body.get("message") or (
-        "Amarra · SMS de teste. Se você recebeu isto, a Twilio consegue "
-        "enviar SMS pro seu número. Este é o canal do recap R3a.")
-
-    try:
-        sid, err = tw.send_recap_sms(to, message)
-    except Exception as e:
-        return JSONResponse({"error": f"send_recap_sms exception: {e}"}, 500)
-
-    if not sid:
-        return JSONResponse(
-            {"error": err or "SMS falhou sem detalhe",
-             "hint": "Console Twilio → Monitor → SMS logs pra ver o code",
-             "to": to}, 400)
-
-    return {"sms_sid": sid, "to": to, "from": os.environ["TWILIO_PHONE_NUMBER"],
-            "message": message[:80] + ("..." if len(message) > 80 else "")}
-
-
 @app.post("/demo/test-email")
 async def demo_test_email(req: Request):
     """

@@ -345,7 +345,7 @@ async def send_recap(operation_id: str, call_id: str) -> dict:
                     .eq("call_id", call_id).execute().data
     assunto, corpo = build_recap(op, call, commitments, mandate)
 
-    out = {"email": None, "sms": None}
+    out = {"email": None}
 
     # e-mail é o canal confiável do R3a
     to = os.getenv("RECAP_TO")
@@ -371,28 +371,7 @@ async def send_recap(operation_id: str, call_id: str) -> dict:
                 "status": "failed", "error": str(e)[:400]})
             out["email"] = "failed"
 
-    # SMS é bônus: no Brasil o remetente chega mascarado e não há via de volta.
-    # Manda tanto pro carrier (número da call) quanto pro SUPERVISOR_PHONE se
-    # SMS_CC_SUPERVISOR=true no .env — útil pra o pitch, você ver o SMS chegar
-    # no seu cel mesmo quando o carrier é um número que não recebe.
-    if call.get("phone"):
-        from app import twilio_voice as tw
-        targets = [call["phone"]]
-        if os.getenv("SMS_CC_SUPERVISOR", "").lower() in ("1", "true", "yes"):
-            sup = os.getenv("SUPERVISOR_PHONE")
-            if sup and sup not in targets:
-                targets.append(sup)
-
-        results = []
-        for tgt in targets:
-            sid, err = tw.send_recap_sms(tgt, corpo[:1400])
-            db.insert("recap_deliveries", {
-                "operation_id": operation_id, "call_id": call_id, "channel": "sms",
-                "target": tgt, "body": corpo[:1400], "provider_id": sid,
-                "status": "sent" if sid else "failed",
-                "error": err if not sid else None})
-            results.append("sent" if sid else "failed")
-        out["sms"] = "sent" if "sent" in results else "failed"
+    # SMS removido: e-mail é o canal único do R3a.
 
     db.c.table("call_briefs").update({
         "recap_sent_to": to or call.get("phone"),
