@@ -151,25 +151,86 @@ async def take_over(call_id: str, req: Request):
 # ═══════════════════════════════════════════════════════════════════════════
 @app.post("/twiml/agent")
 async def twiml_agent(req: Request):
+    """
+    Quando a Twilio invoca uma TwiML App via `to="app:AP..."`, os parâmetros
+    depois do `?` na URI viram QUERY STRING se o método for GET, ou FORM BODY
+    se for POST. Precisamos ler dos dois porque a TwiML App tem que ser POST
+    (nossos endpoints só aceitam POST) e a maioria dos exemplos usa GET.
+    """
     q = req.query_params
-    xml = tw.agent_twiml(conf=q.get("conf"), call_id=q.get("call_id"),
-                         lang=q.get("lang", "es-MX"))
+    form = await req.form()
+    conf = q.get("conf") or form.get("conf")
+    call_id = q.get("call_id") or form.get("call_id")
+    lang = q.get("lang") or form.get("lang") or "es-MX"
+    if not conf or not call_id:
+        print(f"[/twiml/agent] parâmetros faltando: conf={conf!r} call_id={call_id!r}")
+        # Não embute "None" no TwiML — pendura educado em vez de deixar a
+        # sessão da fase 4 morrer no lookup UUID.
+        return Response(content="<Response><Hangup/></Response>",
+                        media_type="application/xml")
+    xml = tw.agent_twiml(conf=conf, call_id=call_id, lang=lang)
     return Response(content=xml, media_type="application/xml")
 
 
 @app.post("/twiml/inbound")
 async def twiml_inbound(req: Request):
-    """R2 — alguém liga para o nosso número. Mesma estrutura: conference + agente."""
+    """
+    R2 — alguém liga para o nosso número. Mesma estrutura: conference + agente.
+
+    `?demo=1` na URL marca a chamada como iniciada POR NÓS (via botão do painel
+    ou dial_me.py), pra o Lovable distinguir no `calls.direction`:
+      - 'inbound'         → alguém realmente ligou pro nosso número (R2)
+      - 'outbound_demo'   → nós disparamos pra o próprio celular (teste)
+    """
     form = await req.form()
+    is_demo = req.query_params.get("demo") == "1"
     call_id = str(uuid.uuid4())
     conf = f"amarra-in-{call_id[:8]}"
     op = db.operation(os.getenv("DEMO_OPERATION_REF", "MZO-GDL-4471"))
-    db.insert("calls", {"id": call_id, "operation_id": op["id"], "direction": "inbound",
-                        "phone": form.get("From"), "call_sid": form.get("CallSid"),
-                        "conference_name": conf, "status": "live"})
+    db.insert("calls", {
+        "id": call_id, "operation_id": op["id"],
+        "direction": "outbound_demo" if is_demo else "inbound",
+        "phone": form.get("From"), "call_sid": form.get("CallSid"),
+        "conference_name": conf, "status": "live",
+    })
     asyncio.get_event_loop().call_later(
         0.5, lambda: tw.join_agent(conf=conf, call_id=call_id))
     return Response(content=tw.conference_twiml(conf), media_type="application/xml")
+
+
+@app.post("/demo/call-me")
+async def demo_call_me(req: Request):
+    """
+    Botão do painel: dispara a Twilio pra discar o SUPERVISOR_PHONE do .env
+    (ou o número que vier no body). A chamada roda o mesmo TwiML de
+    /twiml/inbound?demo=1 — tudo que já funciona pra chamada de entrada
+    roda igual, e a Twilio paga (do saldo) em vez da tarifa internacional
+    da sua operadora.
+
+    Body JSON opcional: {"to": "+55...", "lang": "en"}
+    Devolve: {"call_sid": "CA...", "to": "...", "from": "..."}
+    """
+    body = await req.json() if await req.body() else {}
+    to = body.get("to") or os.getenv("SUPERVISOR_PHONE")
+    if not to:
+        return JSONResponse(
+            {"error": "SUPERVISOR_PHONE não configurado no .env; "
+                      "passe 'to' no body"}, 422)
+
+    from_number = os.environ["TWILIO_PHONE_NUMBER"]
+    host = os.environ["PUBLIC_HOST"]
+    url = f"https://{host}/twiml/inbound?demo=1"
+
+    from twilio.base.exceptions import TwilioRestException
+    try:
+        call = tw.client.calls.create(
+            to=to, from_=from_number, url=url, method="POST",
+        )
+    except TwilioRestException as e:
+        return JSONResponse({"error": f"{e.code}: {e.msg}"}, 400)
+
+    return {"call_sid": call.sid, "to": to, "from": from_number,
+            "url": url, "status": "queued"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -46,7 +46,14 @@ def conference_twiml(conf: str, record: bool = True) -> str:
 </Response>"""
 
 
-def agent_twiml(conf: str, call_id: str, lang: str = "es-MX") -> str:
+GREETINGS = {
+    "en": "Hello, this is the assistant from Textiles Pacífico. Do you have a minute?",
+    "es": "Buenas, le habla el asistente de Textiles Pacífico. ¿Tiene un minuto?",
+    "pt": "Olá, aqui é o assistente da Textiles Pacífico. Tem um minuto?",
+}
+
+
+def agent_twiml(conf: str, call_id: str, lang: str = "en-US") -> str:
     """
     A perna do agente. O ConversationRelay entrega STT, TTS, VAD e barge-in
     prontos — você só escreve o WebSocket em /ws.
@@ -55,20 +62,28 @@ def agent_twiml(conf: str, call_id: str, lang: str = "es-MX") -> str:
     barge-in acontecer (bônus B1). O evento de interrupção precisa TRUNCAR
     o histórico do modelo, senão ele acha que falou a frase inteira.
     """
-    # A doc lista es-ES e es-US; es-MX pode não estar disponível.
-    tts_lang = "es-US" if lang.startswith("es") else lang
+    # ConversationRelay aceita locale completo (en-US, es-US, pt-BR).
+    lang_code = (lang or "en-US")
+    lang_short = lang_code[:2]
+    greeting = GREETINGS.get(lang_short, GREETINGS["en"])
+    # Fallback bilíngue: se o interlocutor troca de idioma, o TTS acompanha.
+    fallbacks = {"en": ["es-US", "pt-BR"],
+                 "es": ["en-US", "pt-BR"],
+                 "pt": ["en-US", "es-US"]}.get(lang_short, ["es-US", "pt-BR"])
+    fallback_tags = "\n      ".join(
+        f'<Language code="{c}" ttsProvider="ElevenLabs"/>' for c in fallbacks)
     return f"""<Response>
   <Connect action="https://{PUBLIC_HOST}/twilio/relay-done">
     <ConversationRelay
         url="wss://{PUBLIC_HOST}/ws"
-        language="{tts_lang}"
+        language="{lang_code}"
         transcriptionProvider="Deepgram" speechModel="nova-3"
         ttsProvider="ElevenLabs"
         interruptible="speech" interruptSensitivity="high"
         reportInputDuringAgentSpeech="speech"
         ignoreBackchannel="true" dtmfDetection="true"
-        welcomeGreeting="Buenas, le habla el asistente de Textiles Pacífico. ¿Tiene un minuto?">
-      <Language code="pt-BR" ttsProvider="ElevenLabs"/>
+        welcomeGreeting="{greeting}">
+      {fallback_tags}
       <Parameter name="conf" value="{conf}"/>
       <Parameter name="call_id" value="{call_id}"/>
     </ConversationRelay>
@@ -88,7 +103,7 @@ def dial_counterparty(*, to: str, conf: str) -> str:
     return call.sid
 
 
-def join_agent(*, conf: str, call_id: str, lang: str = "es-MX") -> str:
+def join_agent(*, conf: str, call_id: str, lang: str = "en-US") -> str:
     """Perna 2. O agente entra na conference. Devolve o CallSid da perna."""
     p = client.conferences(conf).participants.create(
         from_=FROM_NUMBER,

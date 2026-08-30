@@ -33,6 +33,10 @@ class Mandate:
     may_reveal_best_price: bool = True
     may_reveal_competitor_name: bool = False
     may_reveal_max_rate: bool = False
+    # idioma das FRASES devolvidas pela política — a sessão da fase 4 passa
+    # aqui o idioma que o agente vai falar. Default 'es' preserva os ~800
+    # testes existentes escritos em espanhol.
+    lang: str = "es"
 
     def __post_init__(self) -> None:
         assert self.max_rate >= self.target_rate >= self.min_rate, "mandato incoerente"
@@ -58,9 +62,61 @@ class PolicyResult:
     utterance: str | None   # o texto EXATO autorizado. None = nada a falar.
 
 
-def _money(d: Decimal, currency: str) -> str:
-    unit = {"MXN": "pesos", "BRL": "reais", "USD": "dólares"}.get(currency, currency)
+# ── frases da política, por idioma ─────────────────────────────────────────
+UNITS = {
+    "es": {"MXN": "pesos", "BRL": "reais", "USD": "dólares"},
+    "en": {"MXN": "pesos", "BRL": "reais", "USD": "dollars"},
+}
+
+
+def _money(d: Decimal, currency: str, lang: str = "es") -> str:
+    units = UNITS.get(lang, UNITS["es"])
+    unit = units.get(currency, currency)
     return f"{d.quantize(Decimal('1')):,.0f} {unit}".replace(",", ".")
+
+
+PHRASES: dict[str, dict[str, object]] = {
+    "es": {
+        "invalid_ask":
+            "No entendí el monto. ¿Me lo repites, por favor?",
+        "closed":
+            lambda m: f"Cerrado en {m}. Te mando la confirmación ahora.",
+        "counter_market":
+            lambda m: (f"Tengo una propuesta mejor en esta ruta. "
+                       f"¿Puedes acercarte a {m}?"),
+        "counter_plain":
+            lambda m: f"Puedo llegar a {m}. ¿Cerramos así?",
+        "above_max":
+            "Está por encima de lo que puedo autorizar en esta ruta. "
+            "Gracias, pero así no puedo cerrar.",
+        "pickup_ok":
+            "Perfecto, esa ventana nos sirve.",
+        "safe_fallback":
+            "Déjame confirmar ese número contigo antes de seguir.",
+    },
+    "en": {
+        "invalid_ask":
+            "I didn't catch the amount. Could you repeat it, please?",
+        "closed":
+            lambda m: f"Closed at {m}. I'll send you the confirmation now.",
+        "counter_market":
+            lambda m: (f"I have a better offer on this lane. "
+                       f"Can you come down to {m}?"),
+        "counter_plain":
+            lambda m: f"I can go up to {m}. Shall we close on that?",
+        "above_max":
+            "That's above what I can authorize on this lane. "
+            "Thanks, but I can't close on that.",
+        "pickup_ok":
+            "Perfect, that window works for us.",
+        "safe_fallback":
+            "Let me confirm that number with you before continuing.",
+    },
+}
+
+
+def _phrases(lang: str) -> dict[str, object]:
+    return PHRASES.get(lang, PHRASES["es"])
 
 
 def evaluate_offer(state: NegotiationState, ask: Decimal) -> PolicyResult:
@@ -71,10 +127,10 @@ def evaluate_offer(state: NegotiationState, ask: Decimal) -> PolicyResult:
     """
     m = state.mandate
     cur = m.currency
+    ph = _phrases(m.lang)
 
     if ask <= 0:
-        return PolicyResult(Decision.DENY, None, "invalid_ask",
-                            "No entendí el monto. ¿Me lo repites, por favor?")
+        return PolicyResult(Decision.DENY, None, "invalid_ask", ph["invalid_ask"])
 
     # Rodadas esgotadas: parar de negociar é decisão de política, não do modelo.
     if state.rounds >= m.max_rounds:
@@ -84,7 +140,7 @@ def evaluate_offer(state: NegotiationState, ask: Decimal) -> PolicyResult:
     if ask <= m.target_rate:
         return PolicyResult(
             Decision.ALLOW, ask, "at_or_below_target",
-            f"Cerrado en {_money(ask, cur)}. Te mando la confirmación ahora.",
+            ph["closed"](_money(ask, cur, m.lang)),
         )
 
     # 2) Acima do alvo mas dentro do teto → contra-oferta em escada,
@@ -96,29 +152,26 @@ def evaluate_offer(state: NegotiationState, ask: Decimal) -> PolicyResult:
         # ← INVARIANTE. Fail-closed: prefere quebrar a estourar o teto.
         assert counter <= m.max_rate, "INVARIANTE VIOLADA: contra-oferta acima do teto"
 
+        money = _money(counter, cur, m.lang)
         if state.market_best is not None and state.market_best < ask and m.may_reveal_best_price:
-            frase = (f"Tengo una propuesta mejor en esta ruta. "
-                     f"¿Puedes acercarte a {_money(counter, cur)}?")
+            frase = ph["counter_market"](money)
         else:
-            frase = f"Puedo llegar a {_money(counter, cur)}. ¿Cerramos así?"
+            frase = ph["counter_plain"](money)
 
         return PolicyResult(Decision.ALLOW, counter, "counter_within_mandate", frase)
 
     # 3) Acima do teto → a ÚNICA saída é recusar. O modelo não tem escolha aqui.
     #    Nunca revela o teto: isso faria toda contraparte cotar exatamente nele.
-    return PolicyResult(
-        Decision.DENY, None, "above_max_rate",
-        "Está por encima de lo que puedo autorizar en esta ruta. "
-        "Gracias, pero así no puedo cerrar.",
-    )
+    return PolicyResult(Decision.DENY, None, "above_max_rate", ph["above_max"])
 
 
 def evaluate_pickup(state: NegotiationState, offered_iso: str,
                     window_from: str, window_to: str) -> PolicyResult:
     """Janela de coleta é parte do mandato tanto quanto o preço."""
+    ph = _phrases(state.mandate.lang)
     if window_from <= offered_iso <= window_to:
         return PolicyResult(Decision.ALLOW, None, "pickup_within_window",
-                            "Perfecto, esa ventana nos sirve.")
+                            ph["pickup_ok"])
     # Fora da janela é decisão econômica (demurrage) → humano.
     return PolicyResult(Decision.ESCALATE, None, "pickup_outside_window", None)
 
@@ -149,4 +202,5 @@ def gate_text(state: NegotiationState, text: str) -> tuple[str, bool]:
         a = " ".join(approved.split()).lower()
         if norm in a or a in norm:
             return text, False
-    return SAFE_FALLBACK, True
+    fallback = _phrases(state.mandate.lang).get("safe_fallback", SAFE_FALLBACK)
+    return fallback, True

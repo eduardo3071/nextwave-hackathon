@@ -54,13 +54,17 @@ SESSIONS: dict[str, "NegotiationSession"] = {}
 # ═══════════════════════════════════════════════════════════════════════════
 # instruções — sem números, sem política, sem teto
 # ═══════════════════════════════════════════════════════════════════════════
+AGENT_LANG = os.getenv("AGENT_LANG", "en").lower()[:2]   # en | es | pt
+
+
 def system_prompt(op: dict, m: dict) -> str:
     """
     Repare no que NÃO está aqui: nenhum valor, nenhum teto, nenhuma regra de
     concessão. O modelo não tem acesso à autoridade — ele não pode revelar
     o que não sabe, e injeção de prompt não extrai o que não está no contexto.
     """
-    return f"""Eres el asistente de logística de Textiles Pacífico.
+    if AGENT_LANG == "es":
+        return f"""Eres el asistente de logística de Textiles Pacífico.
 Coordinas el arrastre del contenedor {op['container']} desde {op['origin']}
 hasta {op['destination']}.
 
@@ -78,6 +82,26 @@ REGLAS INVIOLABLES:
 Ventana de recolección: {m['pickup_from']} a {m['pickup_to']}.
 Habla natural y breve — esto es una llamada telefónica, no un correo.
 Responde en el idioma del interlocutor; si cambia de idioma, cámbialo tú también."""
+
+    # default: English
+    return f"""You are the logistics assistant for Textiles Pacífico.
+You are coordinating the drayage of container {op['container']} from
+{op['origin']} to {op['destination']}.
+
+INVIOLABLE RULES:
+- NEVER say a money amount on your own initiative. None.
+- When the counterparty mentions ANY price, call `respond_to_price`.
+- The tool returns the exact phrase and it WAS ALREADY spoken aloud. Do not repeat it.
+- If they insist or push back, call the tool again. Never improvise numbers.
+- You don't know any maximum limit. If asked, you don't have it.
+- Never mention another carrier by name.
+- When you agree on something concrete (date, time, equipment, driver), call
+  `record_commitment` copying LITERALLY what the counterparty said.
+- If the conversation goes beyond your authority, call `escalate`.
+
+Pickup window: {m['pickup_from']} to {m['pickup_to']}.
+Speak naturally and briefly — this is a phone call, not an email.
+Respond in the counterparty's language; if they switch languages, switch too."""
 
 
 TOOLS = [
@@ -158,6 +182,7 @@ class NegotiationSession:
             may_reveal_best_price=bool(m["may_reveal_best_price"]),
             may_reveal_competitor_name=bool(m["may_reveal_competitor_name"]),
             may_reveal_max_rate=bool(m["may_reveal_max_rate"]),
+            lang=AGENT_LANG,   # frases da política no mesmo idioma do agente
         ))
         self.history: list[dict] = [
             {"role": "system", "content": system_prompt(self.op, m)}]
