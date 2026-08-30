@@ -392,10 +392,17 @@ async def send_recap(operation_id: str, call_id: str) -> dict:
 
     # SMS removido: e-mail é o canal único do R3a.
 
-    db.c.table("call_briefs").update({
-        "recap_sent_to": to or call.get("phone"),
-        "recap_sent_at": datetime.now(timezone.utc).isoformat(),
-    }).eq("call_id", call_id).execute()
+    # Best-effort: registra pra quem o recap saiu no brief da chamada.
+    # Falha silenciosamente se a linha de brief ainda não existe (chamada
+    # muito curta), sem derrubar toda a cadeia VERIFIED → CLOSED.
+    try:
+        recipient = ", ".join(to_list) if to_list else (call.get("phone") or "")
+        db.c.table("call_briefs").update({
+            "recap_sent_to": recipient,
+            "recap_sent_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("call_id", call_id).execute()
+    except Exception as e:
+        print(f"[fase7] atualização de call_briefs.recap_* falhou: {e}")
 
     return out
 

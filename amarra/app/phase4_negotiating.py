@@ -304,12 +304,41 @@ class NegotiationSession:
             return await self._on_price(args)
 
         if name == "record_commitment":
-            # A âncora no áudio é da fase 7. Aqui guardamos a citação literal,
-            # que é a chave de busca no índice de palavras.
+            # Persiste em `commitments` com state=proposed. Timestamps 0/0 são
+            # placeholders — a fase 7 preenche as janelas reais depois de
+            # ancorar no áudio. Sem esta linha, o read-back não tem o que ler
+            # e o verify_call não tem o que ancorar (era exatamente o bug que
+            # travava tudo em NEGOTIATING).
             self.pending_commitments.append(args)
-            db.stash_pending_commitment(self.call_id, args)
             self.actions.append({"t": self._ms(), "action": "commitment_pending",
                                  "field": args["field"], "quote": args["exact_quote"]})
+            try:
+                db.insert("commitments", {
+                    "call_id": self.call_id,
+                    "operation_id": self.op["id"],
+                    "field": args["field"],
+                    "value": args["value"],
+                    "quote": args["exact_quote"],
+                    "t_start_ms": 0, "t_end_ms": 0,     # anchored by fase 7
+                    "state": "proposed",
+                })
+            except Exception as e:
+                print(f"[fase4] insert commitment falhou: {e}")
+
+            # Se a operação já está RESERVED e agora TODOS os slots materiais
+            # existem, dispara o read-back. Sem este re-trigger, o LLM ficaria
+            # falando informalmente e nunca chegaria a COMMITTED.
+            try:
+                op_row = db.get("operations", self.op["id"])
+                if op_row["phase"] == Phase.RESERVED.value and not self.read_back.active:
+                    from app.phase6_committed import collect_slots, missing_material
+                    if not missing_material(collect_slots(self.call_id)):
+                        await self.read_back.start()
+                        return {"recorded": "commitment_inserted",
+                                "instruction": "Read-back started. Wait for explicit yes."}
+            except Exception as e:
+                print(f"[fase4] re-trigger read-back falhou: {e}")
+
             return {"recorded": "pending_anchor",
                     "instruction": "Confirm with the counterparty by repeating the value back."}
 
@@ -406,6 +435,45 @@ class NegotiationSession:
                     await self._say(frase, approved=True)
                     return {"spoken": True, "instruction": "Do not confirm anything."}
                 reservou_agora = True
+            else:
+                # Fluxo single-leg (inbound direto, sem leilão). Força RESERVED
+                # com força pra pular a guarda do lock — a chamada é sua própria
+                # reserva. Sem isto, o rail nunca sai de NEGOTIATING.
+                try:
+                    advance(self.op["id"], Phase.RESERVED,
+                            trigger="single_leg_buy_it_now",
+                            call_id=self.call_id, force=True,
+                            ctx={"reserved_by": self.call_id,
+                                 "amount": float(res.amount)},
+                            payload={"amount": float(res.amount),
+                                     "reason": "single_leg",
+                                     "carrier": self.call.get("carrier_name")},
+                            detail=f"Reserva single-leg em {res.amount} "
+                                   f"{self.op['currency']}")
+                    reservou_agora = True
+                except PhaseError as e:
+                    print(f"[fase4] RESERVED single-leg falhou: {e}")
+
+            # Toda vez que o buy-it-now dispara, garante que a taxa está
+            # gravada em `commitments` — o read-back precisa desse slot pra
+            # existir, senão pergunta "qual é o valor?" depois da contraparte
+            # já ter dito.
+            try:
+                existing = (db.c.table("commitments").select("id")
+                            .eq("call_id", self.call_id).eq("field", "rate")
+                            .execute().data)
+                if not existing:
+                    db.insert("commitments", {
+                        "call_id": self.call_id,
+                        "operation_id": self.op["id"],
+                        "field": "rate",
+                        "value": str(int(res.amount)),
+                        "quote": args.get("verbatim") or str(res.amount),
+                        "t_start_ms": 0, "t_end_ms": 0,
+                        "state": "proposed",
+                    })
+            except Exception as e:
+                print(f"[fase4] auto-insert rate commitment falhou: {e}")
 
         if res.amount is not None:
             self.state.offers_made.append(res.amount)
