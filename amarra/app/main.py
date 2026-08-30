@@ -570,14 +570,14 @@ async def demo_test_sms(req: Request):
         "enviar SMS pro seu número. Este é o canal do recap R3a.")
 
     try:
-        sid = tw.send_recap_sms(to, message)
+        sid, err = tw.send_recap_sms(to, message)
     except Exception as e:
         return JSONResponse({"error": f"send_recap_sms exception: {e}"}, 500)
 
     if not sid:
         return JSONResponse(
-            {"error": "SMS falhou — verifique Console Twilio → Monitor → "
-                      "SMS logs pra ver o motivo (geo permission, sem A2P, etc.)",
+            {"error": err or "SMS falhou sem detalhe",
+             "hint": "Console Twilio → Monitor → SMS logs pra ver o code",
              "to": to}, 400)
 
     return {"sms_sid": sid, "to": to, "from": os.environ["TWILIO_PHONE_NUMBER"],

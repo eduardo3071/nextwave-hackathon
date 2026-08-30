@@ -141,13 +141,22 @@ def hangup(call_sid: str) -> None:
         pass
 
 
-def send_recap_sms(to: str, body: str) -> str | None:
+def send_recap_sms(to: str, body: str) -> tuple[str | None, str | None]:
     """
     Bônus. Para o Brasil o remetente chega mascarado pela operadora e não há
     via de volta — por isso o e-mail é o canal confiável do R3a, e o SMS é
     só demonstração.
+
+    Devolve (sid, error). Sid presente ⇒ Twilio aceitou. Sid None + error
+    preenchido ⇒ falhou (código Twilio no error, ex: '21610: number opted out').
     """
     try:
-        return client.messages.create(to=to, from_=FROM_NUMBER, body=body[:1500]).sid
-    except Exception:
-        return None
+        msg = client.messages.create(to=to, from_=FROM_NUMBER, body=body[:1500])
+        return (msg.sid, None)
+    except Exception as e:
+        # preserva o código/motivo pra debug — antes engolíamos o error
+        code = getattr(e, "code", None)
+        msg = getattr(e, "msg", str(e))
+        detail = f"{code}: {msg}" if code else str(e)[:400]
+        print(f"[send_recap_sms] falhou pra {to}: {detail}")
+        return (None, detail)
