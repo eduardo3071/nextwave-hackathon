@@ -1,3 +1,4 @@
+import { CrewLogo } from "@/components/amarra/CrewLogo";
 import { useEffect, useRef, useState } from "react";
 import {
   clockLabel,
@@ -136,17 +137,8 @@ export function TopBar({
     <header className="sticky top-0 z-40 border-b border-border bg-background/97 backdrop-blur">
       <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-3">
         <div className="min-w-[16rem]">
-          <div className="label-caps">operation</div>
-          <div className="num text-2xl font-bold text-accent">
-            {operation?.ref ?? "no operation"}
-          </div>
-          <div className="num text-sm text-muted-foreground">
-            {operation
-              ? [operation.container, operation.origin && `${operation.origin} → ${operation.destination}`]
-                  .filter(Boolean)
-                  .join(" · ")
-              : "waiting for a row in operations"}
-          </div>
+          <CrewLogo tagline="freight negotiation control room" />
+
           {hasDossier && (
             <button
               type="button"
