@@ -55,6 +55,9 @@ function ring() {
   }
 }
 
+const E164 = /^\+[1-9]\d{7,14}$/;
+const PHONE_KEY = "amarra:my_phone";
+
 export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean }) {
   const [pending, setPending] = useState<{
     sid?: string | undefined;
@@ -62,8 +65,17 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
   } | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [phone, setPhone] = useState("+55");
   const seenInbound = useRef<Set<string>>(new Set());
   const bootstrapped = useRef(false);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(PHONE_KEY);
+    if (saved) setPhone(saved);
+  }, []);
+
+  const valid = E164.test(phone.trim());
+
 
   const inbound = useMemo(() => {
     const live = calls.filter(
@@ -117,13 +129,19 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
       toast.error("VITE_BACKEND_URL is not configured");
       return;
     }
+    const to = phone.trim();
+    if (!E164.test(to)) {
+      toast.error("Enter your number in E.164 format, e.g. +5511999999999");
+      return;
+    }
+    window.localStorage.setItem(PHONE_KEY, to);
     setBusy(true);
     setFailure(null);
     try {
       const res = await fetch(`${backendUrl}/demo/call-me`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ to }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         call_sid?: string;
@@ -134,8 +152,9 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
         toast.error(data.error ?? `${res.status} · failed to dial`);
         return;
       }
-      setPending({ sid: data.call_sid, to: data.to });
-      toast.success(`Dialing ${data.to ?? "your number"}`);
+      setPending({ sid: data.call_sid, to: data.to ?? to });
+      toast.success(`Dialing ${data.to ?? to}`);
+
     } catch (e) {
       toast.error(`Backend unreachable: ${String(e)}`);
     } finally {
@@ -193,19 +212,37 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
 
   return (
     <section>
+      <label className="label-caps mb-1 block" htmlFor="amarra-phone">
+        Your phone (E.164)
+      </label>
+      <input
+        id="amarra-phone"
+        inputMode="tel"
+        autoComplete="tel"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && valid && !busy) void callMe();
+        }}
+        placeholder="+5511999999999"
+        className={`num min-h-12 w-full rounded-xl border-2 bg-background/40 px-4 text-base text-foreground outline-none transition placeholder:text-muted-foreground ${
+          phone.trim() && !valid ? "border-danger" : "border-border focus:border-accent"
+        }`}
+      />
       <button
         type="button"
         onClick={() => void callMe()}
-        disabled={busy}
-        className={`w-full rounded-full border-2 border-accent bg-accent/10 px-6 font-bold tracking-wide text-accent uppercase transition hover:bg-accent/20 disabled:opacity-50 ${
+        disabled={busy || !valid}
+        className={`mt-3 w-full rounded-full border-2 border-accent bg-accent/10 px-6 font-bold tracking-wide text-accent uppercase transition hover:bg-accent/20 disabled:opacity-50 ${
           big ? "min-h-16 text-lg" : "min-h-14 text-base"
         }`}
       >
         📞 Call me
       </button>
       <div className="num mt-2 text-center text-xs text-muted-foreground">
-        Twilio will dial your phone · no international charges
+        Twilio will dial this number · only numbers verified in Twilio can be reached
       </div>
+
       {failure && (
         <div className="num mt-2 text-center text-xs text-danger">❌ call failed: {failure}</div>
       )}
