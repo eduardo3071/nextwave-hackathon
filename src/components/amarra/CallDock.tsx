@@ -55,6 +55,9 @@ function ring() {
   }
 }
 
+const E164 = /^\+[1-9]\d{7,14}$/;
+const PHONE_KEY = "amarra:my_phone";
+
 export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean }) {
   const [pending, setPending] = useState<{
     sid?: string | undefined;
@@ -62,8 +65,17 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
   } | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [phone, setPhone] = useState("+55");
   const seenInbound = useRef<Set<string>>(new Set());
   const bootstrapped = useRef(false);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(PHONE_KEY);
+    if (saved) setPhone(saved);
+  }, []);
+
+  const valid = E164.test(phone.trim());
+
 
   const inbound = useMemo(() => {
     const live = calls.filter(
