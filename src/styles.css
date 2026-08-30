@@ -76,8 +76,9 @@
 :root,
 .dark {
   --radius: 0.35rem;
-  --font-mono-stack: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --font-sans-stack: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+  --font-mono-stack: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans-stack: "Space Grotesk", system-ui, sans-serif;
+  --font-display-stack: "Chakra Petch", "Space Grotesk", system-ui, sans-serif;
 
   --background: oklch(0.30 0.115 285);
   --foreground: oklch(0.98 0.012 300);
