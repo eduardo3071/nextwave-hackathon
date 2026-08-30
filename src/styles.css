@@ -78,37 +78,37 @@
   --font-mono-stack: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-sans-stack: "Barlow Condensed", "Barlow", system-ui, sans-serif;
 
-  --background: oklch(0.16 0.018 250);
-  --foreground: oklch(0.97 0.005 250);
-  --panel: oklch(0.21 0.021 252);
-  --panel-2: oklch(0.26 0.024 252);
-  --grid: oklch(0.38 0.03 252);
+  --background: oklch(0.30 0.115 285);
+  --foreground: oklch(0.98 0.012 300);
+  --panel: oklch(0.36 0.115 292 / 0.72);
+  --panel-2: oklch(0.44 0.13 296 / 0.72);
+  --grid: oklch(0.62 0.14 300 / 0.45);
 
   --card: var(--panel);
   --card-foreground: var(--foreground);
-  --popover: oklch(0.23 0.022 252);
+  --popover: oklch(0.33 0.12 288);
   --popover-foreground: var(--foreground);
 
-  --primary: oklch(0.86 0.19 95);
-  --primary-foreground: oklch(0.18 0.02 250);
+  --primary: oklch(0.84 0.20 330);
+  --primary-foreground: oklch(0.22 0.10 300);
   --secondary: var(--panel-2);
   --secondary-foreground: var(--foreground);
   --muted: var(--panel-2);
-  --muted-foreground: oklch(0.78 0.02 250);
-  --accent: oklch(0.82 0.16 195);
-  --accent-foreground: oklch(0.16 0.018 250);
+  --muted-foreground: oklch(0.86 0.055 300);
+  --accent: oklch(0.86 0.16 195);
+  --accent-foreground: oklch(0.24 0.10 290);
 
-  --live: oklch(0.82 0.21 145);
-  --warn: oklch(0.84 0.18 78);
-  --danger: oklch(0.66 0.24 25);
-  --info: oklch(0.74 0.16 245);
-  --agent: oklch(0.84 0.14 195);
+  --live: oklch(0.86 0.21 155);
+  --warn: oklch(0.88 0.18 85);
+  --danger: oklch(0.70 0.24 18);
+  --info: oklch(0.80 0.16 250);
+  --agent: oklch(0.86 0.15 190);
 
   --destructive: var(--danger);
-  --destructive-foreground: oklch(0.98 0.005 250);
-  --border: oklch(0.34 0.026 252);
-  --input: oklch(0.3 0.024 252);
-  --ring: oklch(0.82 0.16 195);
+  --destructive-foreground: oklch(0.99 0.005 300);
+  --border: oklch(0.72 0.14 300 / 0.30);
+  --input: oklch(0.50 0.13 296 / 0.6);
+  --ring: oklch(0.86 0.16 195);
 
   --chart-1: var(--live);
   --chart-2: var(--warn);
@@ -132,6 +132,11 @@
 
   body {
     background-color: var(--color-background);
+    background-image:
+      radial-gradient(60rem 40rem at 8% -10%, oklch(0.62 0.24 330 / 0.42), transparent 60%),
+      radial-gradient(52rem 36rem at 100% 0%, oklch(0.70 0.19 200 / 0.34), transparent 60%),
+      radial-gradient(60rem 48rem at 50% 110%, oklch(0.58 0.20 265 / 0.40), transparent 62%);
+    background-attachment: fixed;
     color: var(--color-foreground);
     font-family: var(--font-sans-stack);
     font-variant-numeric: tabular-nums;
@@ -157,6 +162,8 @@
 @utility panel {
   background-color: var(--panel);
   border: 1px solid var(--border);
+  backdrop-filter: blur(14px) saturate(1.35);
+  box-shadow: 0 1px 0 0 oklch(1 0 0 / 0.08) inset, 0 12px 34px -18px oklch(0.15 0.08 300 / 0.9);
 }
 
 @keyframes amarra-pulse {
