@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CallColumn } from "@/components/amarra/CallColumn";
+import { MarketDock } from "@/components/amarra/MarketDock";
+
 import { CallDock } from "@/components/amarra/CallDock";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CommitmentsList } from "@/components/amarra/CommitmentsList";
@@ -39,10 +41,13 @@ export const Route = createFileRoute("/")({
 });
 
 const DEFAULT_CARRIERS = [
-  { id: "fletes-bajio", name: "Fletes del Bajío", phone: "" },
-  { id: "transportes-ruiz", name: "Transportes Ruiz", phone: "" },
-  { id: "autolineas-mx", name: "Autolíneas MX", phone: "" },
+  { id: "fletes-bajio", name: "Fletes del Bajío", phone: "+551195936644" },
+  { id: "transportes-ruiz", name: "Transportes Ruiz", phone: "+551199703489" },
+  { id: "autolineas-mx", name: "Autolíneas MX", phone: "+551193484301" },
 ];
+
+
+
 
 function useCarriers() {
   const [carriers, setCarriers] = useState(DEFAULT_CARRIERS);
@@ -194,6 +199,13 @@ function Dashboard() {
       {isMobile ? (
         <main className="mx-auto w-full max-w-[430px] space-y-5 px-4 py-4">
           <CallDock calls={calls} big={!operation} />
+          <MarketDock
+            phase={phase}
+            calls={calls}
+            carriers={carriers}
+            onUpdateCarriers={update}
+          />
+
 
           {!operation ? (
             <section className="panel rounded-md px-4 py-10 text-center">
@@ -272,6 +284,13 @@ function Dashboard() {
       <main className="grid gap-4 px-5 py-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="min-w-0 space-y-4">
           <CallDock calls={calls} />
+          <MarketDock
+            phase={phase}
+            calls={calls}
+            carriers={carriers}
+            onUpdateCarriers={update}
+          />
+
           <section className="grid gap-3 lg:grid-cols-3">
             {counterpartyCalls.length === 0 ? (
               <div className="panel num rounded-md px-3 py-6 text-sm text-muted-foreground lg:col-span-3">
@@ -360,23 +379,11 @@ function Dashboard() {
           )}
 
           {phase === "mandate_issued" && operation && (
-            <>
-              <Btn
-                tone="live"
-                onClick={run(
-                  "/phase3/open",
-                  { operation_ref: operation.ref, carriers },
-                  "Mercado aberto — discando",
-                )}
-                disabled={carriers.length < 3}
-              >
-                abrir mercado ({carriers.length})
-              </Btn>
-              <Btn tone="accent" onClick={() => setShowCarriers((v) => !v)}>
-                transportadoras
-              </Btn>
-            </>
+            <Btn tone="accent" onClick={() => setShowCarriers((v) => !v)}>
+              transportadoras
+            </Btn>
           )}
+
 
           {(phase === "market_open" || phase === "negotiating") && auction && (
             <Btn
