@@ -135,15 +135,25 @@ TOOLS = [
 
 def _slow(text: str) -> str:
     """
-    Wrap the agent's utterance in SSML so ElevenLabs speaks at 90% of
-    normal rate, with short pauses between sentences. Without this the
-    default TTS races through the phrase and numbers become unintelligible.
+    Slow the agent down using punctuation only — no SSML, no provider
+    tags. ConversationRelay ships each `text` token straight to TTS and
+    rejects/reads-aloud any XML that leaks through, so we can't rely on
+    <prosody> or <break>. Trailing ellipses and commas around numbers
+    turn into real silence with every TTS engine.
+
+    Trade-off: the pause is fixed (~150 ms per extra period), not tunable.
+    Good enough to fix "raced through the number" without any risk of
+    breaking the call.
     """
-    # small pause after each sentence-final punctuation → the ear catches up
-    padded = (text.replace(". ", '. <break time="250ms"/> ')
-                  .replace("? ", '? <break time="250ms"/> ')
-                  .replace("! ", '! <break time="250ms"/> '))
-    return f'<speak><prosody rate="90%">{padded}</prosody></speak>'
+    # short breath after each sentence
+    padded = (text.replace(". ", "... ")
+                  .replace("? ", "?... ")
+                  .replace("! ", "!... "))
+    # tiny pause before/after numbers so the digits land clearly
+    import re
+    padded = re.sub(r"(\d[\d,\.]*)", r", \1,", padded)
+    # collapse ", ," artifacts from the substitution
+    return padded.replace(", ,", ",").replace(",,", ",")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -169,11 +179,24 @@ class NegotiationSession:
         m = db.mandate(self.op["id"])
 
         # A fase 2 é pré-requisito duro: sem mandato emitido não se negocia.
+        # Self-heal: se alguém disparou a chamada antes de emitir o mandato
+        # (inbound direto no número, demo pulado, etc.), a gente emite agora
+        # com os defaults do operations. Sem isto, ConversationRelay ouve o
+        # erro no /ws e a Twilio fala "an application error has occurred"
+        # já no primeiro segundo da chamada.
         if not m.get("mandate_hash"):
-            raise RuntimeError("mandato não emitido — a fase 2 não rodou")
+            print(f"[fase4] mandato não emitido para op {self.op['id']}, "
+                  f"auto-emitindo com defaults")
+            try:
+                from app.phase2_mandate import issue_sync
+                issue_sync(self.op["id"])
+            except Exception as e:
+                # Fallback derradeiro: rodar sem mandate_hash (sem auditoria).
+                print(f"[fase4] auto-emissão falhou ({e}), seguindo com defaults")
+            m = db.mandate(self.op["id"])
 
         self.mandate_row = m
-        self.mandate_hash: str = m["mandate_hash"]
+        self.mandate_hash: str = m.get("mandate_hash") or "unissued"
         self.band: dict | None = m.get("escalation_band")
         self.break_even = (Decimal(str(m["break_even_rate"]))
                            if m.get("break_even_rate") else None)
@@ -202,12 +225,35 @@ class NegotiationSession:
     async def open(self) -> None:
         db.update("calls", self.call_id,
                   {"status": "live", "answered_at": "now()"})
+
+        # Walk the spine up to NEGOTIATING. Normal auction flow: phases 1–3
+        # already ran, so the first two advances no-op and only the last one
+        # fires. Solo inbound flow (no auction): fast-forward with force to
+        # get the panel to NEGOTIATING without pretending three carriers dialed.
+        current_phase = Phase(db.get("operations", self.op["id"])["phase"])
         try:
-            advance(self.op["id"], Phase.NEGOTIATING, trigger="first_leg_live",
-                    call_id=self.call_id, auction_id=self.call.get("auction_id"),
-                    detail=f"{self.call.get('carrier_name') or 'Contraparte'} atendeu")
-        except PhaseError:
-            pass   # a 2ª e a 3ª pernas já encontram a fase aberta
+            if current_phase is Phase.DETECTED:
+                # Very early state, self-heal auto-issued the mandate already;
+                # walk it through market_open too.
+                advance(self.op["id"], Phase.MANDATE_ISSUED,
+                        trigger="auto_issued_on_answer", force=True,
+                        detail="Mandato emitido automaticamente ao atender")
+                current_phase = Phase.MANDATE_ISSUED
+            if current_phase is Phase.MANDATE_ISSUED:
+                advance(self.op["id"], Phase.MARKET_OPEN,
+                        trigger="single_leg_flow", force=True,
+                        detail="Mercado aberto (fluxo single-leg)")
+                current_phase = Phase.MARKET_OPEN
+            if current_phase is Phase.MARKET_OPEN:
+                advance(self.op["id"], Phase.NEGOTIATING,
+                        trigger="first_leg_live",
+                        call_id=self.call_id,
+                        auction_id=self.call.get("auction_id"),
+                        detail=f"{self.call.get('carrier_name') or 'Contraparte'} atendeu")
+        except PhaseError as e:
+            print(f"[fase4] avanço até NEGOTIATING falhou: {e}")
+            # As 2ª e 3ª pernas já encontram a fase aberta — não é fatal.
+
         self.actions.append({"t": 0, "action": "answered"})
         self._silence_task = asyncio.create_task(self._silence_watchdog())
 
@@ -558,10 +604,32 @@ async def relay(ws: WebSocket):
                 params = msg.get("customParameters") or {}
                 call_id = params.get("call_id")
                 if not call_id:
+                    # Say something rather than dropping into Twilio's default
+                    # "an application error has occurred" fallback.
+                    await ws.send_text(json.dumps({
+                        "type": "text",
+                        "token": ("Sorry, I lost track of the call context. "
+                                  "Let me hang up and call you back."),
+                        "last": True}))
                     await ws.close(code=1008)
                     return
-                sess = NegotiationSession(call_id=call_id, ws=ws,
-                                          agent_call_sid=msg.get("callSid"))
+                try:
+                    sess = NegotiationSession(call_id=call_id, ws=ws,
+                                              agent_call_sid=msg.get("callSid"))
+                except Exception as e:
+                    # Setup failed (missing op row, DB error, ...). Fall back
+                    # to a courteous close instead of Twilio's error voice.
+                    print(f"[fase4] NegotiationSession init falhou para "
+                          f"call_id={call_id}: {e}")
+                    await ws.send_text(json.dumps({
+                        "type": "text",
+                        "token": ("Thanks for picking up. We hit a small "
+                                  "hiccup on our side — I'll call you right "
+                                  "back in a moment."),
+                        "last": True}))
+                    await asyncio.sleep(3.5)
+                    await ws.close(code=1011)
+                    return
                 SESSIONS[call_id] = sess
                 await sess.open()
 

@@ -193,12 +193,12 @@ def mandate_hash(canonical: dict) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 # emissão
 # ═══════════════════════════════════════════════════════════════════════════
-@router.post("/issue/{operation_id}")
-async def issue(operation_id: str, force: bool = False):
+def issue_sync(operation_id: str, force: bool = False) -> dict:
     """
-    Emite o mandato e avança a operação para 'mandate_issued'.
-
-    curl -X POST $HOST/phase2/issue/$OP_ID
+    Pure-sync core of the mandate issuance. Reused by:
+      · the REST route below (async wrapper)
+      · phase 4's WebSocket self-heal when someone dialed the counterparty
+        before running phase 2 explicitly.
     """
     op = db.get("operations", operation_id)
     m = db.mandate(operation_id)
@@ -267,6 +267,16 @@ async def issue(operation_id: str, force: bool = False):
         "warnings": warnings,
         "next": "POST /auction/start para abrir o mercado (fase 3)",
     }
+
+
+@router.post("/issue/{operation_id}")
+async def issue(operation_id: str, force: bool = False):
+    """
+    Emite o mandato e avança a operação para 'mandate_issued'.
+
+    curl -X POST $HOST/phase2/issue/$OP_ID
+    """
+    return issue_sync(operation_id, force=force)
 
 
 @router.get("/mandate/{operation_id}")
