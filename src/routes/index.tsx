@@ -363,23 +363,11 @@ function Dashboard() {
           )}
 
           {phase === "mandate_issued" && operation && (
-            <>
-              <Btn
-                tone="live"
-                onClick={run(
-                  "/phase3/open",
-                  { operation_ref: operation.ref, carriers },
-                  "Mercado aberto — discando",
-                )}
-                disabled={carriers.length < 3}
-              >
-                abrir mercado ({carriers.length})
-              </Btn>
-              <Btn tone="accent" onClick={() => setShowCarriers((v) => !v)}>
-                transportadoras
-              </Btn>
-            </>
+            <Btn tone="accent" onClick={() => setShowCarriers((v) => !v)}>
+              transportadoras
+            </Btn>
           )}
+
 
           {(phase === "market_open" || phase === "negotiating") && auction && (
             <Btn
