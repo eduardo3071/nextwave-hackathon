@@ -39,10 +39,11 @@ export const Route = createFileRoute("/")({
 });
 
 const DEFAULT_CARRIERS = [
-  { id: "fletes-bajio", name: "Fletes del Bajío", phone: "" },
-  { id: "transportes-ruiz", name: "Transportes Ruiz", phone: "" },
-  { id: "autolineas-mx", name: "Autolíneas MX", phone: "" },
+  { id: "fletes-bajio", name: "Fletes del Bajío", phone: "+5511959366 44".replace(/\s/g, "") },
+  { id: "transportes-ruiz", name: "Transportes Ruiz", phone: "+5511997034 89".replace(/\s/g, "") },
+  { id: "autolineas-mx", name: "Autolíneas MX", phone: "+5511934843 01".replace(/\s/g, "") },
 ];
+
 
 function useCarriers() {
   const [carriers, setCarriers] = useState(DEFAULT_CARRIERS);
