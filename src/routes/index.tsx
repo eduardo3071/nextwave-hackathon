@@ -381,7 +381,7 @@ function Dashboard() {
           )}
         </aside>
       </main>
-      )}
+
 
 
       <footer className="sticky bottom-0 z-30 border-t border-border bg-background/97 px-5 py-3 backdrop-blur">
