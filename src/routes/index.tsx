@@ -333,21 +333,51 @@ function Dashboard() {
       <PhaseRail
         operation={operation}
         phaseEvents={phaseEvents}
-        onOpenEscalation={() => {
-          document.getElementById("amarra-escalation")?.scrollIntoView({ behavior: "smooth" });
-        }}
+        onOpenEscalation={() => setTab("escalation")}
       />
 
-      <main className="grid gap-4 px-5 py-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="min-w-0 space-y-4">
-          <CallDock calls={calls} />
-          <MarketDock
-            phase={phase}
-            calls={calls}
-            carriers={carriers}
-            onUpdateCarriers={update}
-          />
+      <main className="mx-auto w-full max-w-6xl space-y-4 px-5 py-4">
+        <TabBar tab={tab} setTab={setTab} />
 
+        {tab === "start" && (
+          <div className="space-y-4">
+            <CallDock calls={calls} />
+            <MarketDock
+              phase={phase}
+              calls={calls}
+              carriers={carriers}
+              onUpdateCarriers={update}
+            />
+            {otherLegs.length > 0 && (
+              <section className="panel num rounded-md px-3 py-2 text-xs">
+                <span className="label-caps mr-2">other legs in the conference</span>
+                {otherLegs.map((c) => (
+                  <span key={c.id} className="mr-3">
+                    {c.leg_role}: {c.phone ?? c.carrier_name ?? c.id.slice(0, 8)} · {c.status}
+                  </span>
+                ))}
+              </section>
+            )}
+            {auction && (
+              <section className="panel num rounded-md px-3 py-2 text-xs">
+                <div className="label-caps">auction</div>
+                <div>status: {auction.status}</div>
+                {auction.reserved_by && (
+                  <div className="text-live">reserved by {auction.reserved_by.slice(0, 8)}</div>
+                )}
+                {auction.reserve_amount != null && (
+                  <div>reserve: {money(auction.reserve_amount, currency)}</div>
+                )}
+                {auction.release_reason && (
+                  <div className="text-warn">{auction.release_reason}</div>
+                )}
+                <div>quotes: {num(quotes.length)}</div>
+              </section>
+            )}
+          </div>
+        )}
+
+        {tab === "transcript" && (
           <section className="grid gap-3 lg:grid-cols-3">
             {counterpartyCalls.length === 0 ? (
               <div className="panel num rounded-md px-3 py-6 text-sm text-muted-foreground lg:col-span-3">
@@ -367,53 +397,34 @@ function Dashboard() {
               ))
             )}
           </section>
+        )}
 
-          {otherLegs.length > 0 && (
-            <section className="panel num rounded-md px-3 py-2 text-xs">
-              <span className="label-caps mr-2">other legs in the conference</span>
-              {otherLegs.map((c) => (
-                <span key={c.id} className="mr-3">
-                  {c.leg_role}: {c.phone ?? c.carrier_name ?? c.id.slice(0, 8)} · {c.status}
-                </span>
-              ))}
-            </section>
-          )}
-
+        {tab === "comparison" && (
           <QuoteTable quotes={quotes} auction={auction} currency={currency} />
+        )}
 
-          <div id="amarra-escalation">
-            <EscalationPanel
-              escalations={escalations}
-              currency={currency}
-              live={phase === "escalated" || escalations.some((e) => !e.resolution)}
+        {tab === "escalation" && (
+          <EscalationPanel
+            escalations={escalations}
+            currency={currency}
+            live={phase === "escalated" || escalations.some((e) => !e.resolution)}
+          />
+        )}
+
+        {tab === "timeline" && <PhaseTimeline events={phaseEvents} />}
+
+        {tab === "recap" && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <CommitmentsList commitments={commitments} />
+            <RecapCard
+              recaps={recaps}
+              dossier={dossier}
+              onOpenDossier={() => setShowDossier(true)}
             />
           </div>
-        </div>
-
-        <aside className="min-w-0 space-y-4">
-          <PhaseTimeline events={phaseEvents} />
-          <CommitmentsList commitments={commitments} />
-          <RecapCard
-            recaps={recaps}
-            dossier={dossier}
-            onOpenDossier={() => setShowDossier(true)}
-          />
-          {auction && (
-            <section className="panel num rounded-md px-3 py-2 text-xs">
-              <div className="label-caps">auction</div>
-              <div>status: {auction.status}</div>
-              {auction.reserved_by && (
-                <div className="text-live">reserved by {auction.reserved_by.slice(0, 8)}</div>
-              )}
-              {auction.reserve_amount != null && (
-                <div>reserve: {money(auction.reserve_amount, currency)}</div>
-              )}
-              {auction.release_reason && <div className="text-warn">{auction.release_reason}</div>}
-              <div>quotes: {num(quotes.length)}</div>
-            </section>
-          )}
-        </aside>
+        )}
       </main>
+
 
 
 
