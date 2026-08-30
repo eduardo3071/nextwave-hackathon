@@ -40,11 +40,9 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-const DEFAULT_CARRIERS = [
-  { id: "fletes-bajio", name: "Fletes del Bajío", phone: "+551195936644" },
-  { id: "transportes-ruiz", name: "Transportes Ruiz", phone: "+551199703489" },
-  { id: "autolineas-mx", name: "Autolíneas MX", phone: "+551193484301" },
-];
+/** No carriers are invented in the front end: the backend owns the list.
+ *  Local overrides live in localStorage only when the operator types them. */
+const DEFAULT_CARRIERS: { id: string; name: string; phone: string }[] = [];
 
 
 
