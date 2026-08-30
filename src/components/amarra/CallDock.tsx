@@ -212,19 +212,37 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
 
   return (
     <section>
+      <label className="label-caps mb-1 block" htmlFor="amarra-phone">
+        Your phone (E.164)
+      </label>
+      <input
+        id="amarra-phone"
+        inputMode="tel"
+        autoComplete="tel"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && valid && !busy) void callMe();
+        }}
+        placeholder="+5511999999999"
+        className={`num min-h-12 w-full rounded-xl border-2 bg-background/40 px-4 text-base text-foreground outline-none transition placeholder:text-muted-foreground ${
+          phone.trim() && !valid ? "border-danger" : "border-border focus:border-accent"
+        }`}
+      />
       <button
         type="button"
         onClick={() => void callMe()}
-        disabled={busy}
-        className={`w-full rounded-full border-2 border-accent bg-accent/10 px-6 font-bold tracking-wide text-accent uppercase transition hover:bg-accent/20 disabled:opacity-50 ${
+        disabled={busy || !valid}
+        className={`mt-3 w-full rounded-full border-2 border-accent bg-accent/10 px-6 font-bold tracking-wide text-accent uppercase transition hover:bg-accent/20 disabled:opacity-50 ${
           big ? "min-h-16 text-lg" : "min-h-14 text-base"
         }`}
       >
         📞 Call me
       </button>
       <div className="num mt-2 text-center text-xs text-muted-foreground">
-        Twilio will dial your phone · no international charges
+        Twilio will dial this number · only numbers verified in Twilio can be reached
       </div>
+
       {failure && (
         <div className="num mt-2 text-center text-xs text-danger">❌ call failed: {failure}</div>
       )}
