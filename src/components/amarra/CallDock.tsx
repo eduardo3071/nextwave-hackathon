@@ -129,13 +129,19 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
       toast.error("VITE_BACKEND_URL is not configured");
       return;
     }
+    const to = phone.trim();
+    if (!E164.test(to)) {
+      toast.error("Enter your number in E.164 format, e.g. +5511999999999");
+      return;
+    }
+    window.localStorage.setItem(PHONE_KEY, to);
     setBusy(true);
     setFailure(null);
     try {
       const res = await fetch(`${backendUrl}/demo/call-me`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ to }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         call_sid?: string;
@@ -146,8 +152,9 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
         toast.error(data.error ?? `${res.status} · failed to dial`);
         return;
       }
-      setPending({ sid: data.call_sid, to: data.to });
-      toast.success(`Dialing ${data.to ?? "your number"}`);
+      setPending({ sid: data.call_sid, to: data.to ?? to });
+      toast.success(`Dialing ${data.to ?? to}`);
+
     } catch (e) {
       toast.error(`Backend unreachable: ${String(e)}`);
     } finally {
