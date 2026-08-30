@@ -40,7 +40,7 @@ export function CrewLogo({
       <CrewMark className={sm ? "h-8 w-8 text-accent" : "h-11 w-11 text-accent"} />
       <div className="min-w-0">
         <div
-          className={`num font-bold tracking-[0.18em] text-foreground uppercase ${
+          className={`display tracking-[0.28em] text-foreground uppercase ${
             sm ? "text-base leading-none" : "text-2xl leading-none"
           }`}
         >
