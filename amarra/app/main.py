@@ -473,6 +473,125 @@ async def demo_scenario_status(operation_ref: str):
     }
 
 
+@app.post("/demo/recap/{operation_id}")
+async def demo_send_recap(operation_id: str, req: Request):
+    """
+    Dispara o recap R3a (email + SMS) agora, sob demanda — sem esperar a
+    gravação processar. Útil pra:
+      - Testar canais separadamente antes da demo
+      - Reenviar recap após falha
+      - Cobrir o R3a mesmo quando a fase 7 (áncora) ainda não completou
+
+    Body opcional: {"call_id": "..."} — se omitido, usa a última call da
+    operação. Retorna delivery status (email/sms + rows em recap_deliveries).
+    """
+    from app.phase7_verified import send_recap
+
+    body = await req.json() if await req.body() else {}
+    call_id = body.get("call_id")
+    if not call_id:
+        # última call da operação
+        calls = (db.c.table("calls").select("id")
+                 .eq("operation_id", operation_id)
+                 .order("started_at", desc=True).limit(1).execute().data)
+        if not calls:
+            return JSONResponse(
+                {"error": "operação sem nenhuma chamada — nada pra sumarizar"}, 404)
+        call_id = calls[0]["id"]
+
+    try:
+        result = await send_recap(operation_id, call_id)
+    except Exception as e:
+        return JSONResponse({"error": f"send_recap falhou: {e}"}, 500)
+
+    return {"operation_id": operation_id, "call_id": call_id, "delivery": result}
+
+
+@app.post("/demo/test-sms")
+async def demo_test_sms(req: Request):
+    """
+    Manda 1 SMS de teste via Twilio. Independente da lógica do Amarra —
+    só prova que a conta Twilio consegue enviar SMS pro número passado.
+
+    Body: {"to": "+5511...", "message": "..."}  (message opcional)
+    Uso típico:  curl -X POST .../demo/test-sms -d '{"to":"+5511934843013"}'
+    """
+    body = await req.json() if await req.body() else {}
+    to = body.get("to") or os.getenv("SUPERVISOR_PHONE")
+    if not to:
+        return JSONResponse({"error": "to faltando (ou setar SUPERVISOR_PHONE)"}, 422)
+    message = body.get("message") or (
+        "Amarra · SMS de teste. Se você recebeu isto, a Twilio consegue "
+        "enviar SMS pro seu número. Este é o canal do recap R3a.")
+
+    try:
+        sid = tw.send_recap_sms(to, message)
+    except Exception as e:
+        return JSONResponse({"error": f"send_recap_sms exception: {e}"}, 500)
+
+    if not sid:
+        return JSONResponse(
+            {"error": "SMS falhou — verifique Console Twilio → Monitor → "
+                      "SMS logs pra ver o motivo (geo permission, sem A2P, etc.)",
+             "to": to}, 400)
+
+    return {"sms_sid": sid, "to": to, "from": os.environ["TWILIO_PHONE_NUMBER"],
+            "message": message[:80] + ("..." if len(message) > 80 else "")}
+
+
+@app.post("/demo/test-email")
+async def demo_test_email(req: Request):
+    """
+    Manda 1 email de teste via Resend. Prova que RESEND_API_KEY funciona
+    e que o destinatário RECAP_TO está recebendo.
+
+    Body opcional: {"to": "...", "subject": "...", "body": "..."}
+    Padrões vêm do .env.
+    """
+    import httpx as _httpx
+    body = await req.json() if await req.body() else {}
+    to = body.get("to") or os.getenv("RECAP_TO")
+    key = os.getenv("RESEND_API_KEY")
+
+    if not to:
+        return JSONResponse({"error": "to faltando (ou setar RECAP_TO)"}, 422)
+    if not key:
+        return JSONResponse({"error": "RESEND_API_KEY faltando no .env"}, 422)
+
+    from_addr = os.getenv("RECAP_FROM", "amarra@resend.dev")
+    subject = body.get("subject") or "[Amarra] Email de teste do R3a"
+    text = body.get("body") or (
+        "Amarra · email de teste.\n\nSe você recebeu isto, a integração com "
+        "Resend está funcionando e este é o canal confiável do R3a "
+        "(confirmação escrita pós-chamada).\n\n— Amarra")
+
+    try:
+        async with _httpx.AsyncClient(timeout=30) as c:
+            r = await c.post("https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {key}"},
+                json={"from": from_addr, "to": [to],
+                      "subject": subject, "text": text})
+    except Exception as e:
+        return JSONResponse({"error": f"exception: {e}"}, 500)
+
+    if r.status_code >= 300:
+        return JSONResponse({"error": r.text[:400], "status": r.status_code,
+                             "hint": "confira RESEND_API_KEY e se o remetente "
+                                     "está verificado no Resend"}, 400)
+
+    return {"email_id": r.json().get("id"), "to": to, "from": from_addr,
+            "subject": subject}
+
+
+@app.get("/demo/recap/deliveries/{operation_id}")
+async def demo_recap_deliveries(operation_id: str):
+    """Lista os recaps enviados pra essa operação (leitura do painel/debug)."""
+    rows = (db.c.table("recap_deliveries").select("*")
+            .eq("operation_id", operation_id)
+            .order("created_at", desc=True).limit(50).execute().data)
+    return {"operation_id": operation_id, "count": len(rows), "deliveries": rows}
+
+
 @app.post("/demo/reset")
 async def demo_reset(operation_ref: str | None = None):
     """

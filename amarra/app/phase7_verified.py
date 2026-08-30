@@ -286,6 +286,7 @@ def build_recap(op: dict, call: dict, commitments: list[dict],
         return f"{ms // 60000:02d}:{(ms % 60000) // 1000:02d}"
 
     linhas = []
+    # Ancorados no áudio (fase 7 rodou)
     for c in commitments:
         if c["anchor_state"] not in ("anchored", "low_confidence"):
             continue
@@ -293,6 +294,16 @@ def build_recap(op: dict, call: dict, commitments: list[dict],
             f"  • {c['field']}: {c['value']}\n"
             f"    dito às {mmss(c['t_start_ms'])} — “{c['quote']}”\n"
             f"    confirmado às {mmss(c.get('affirmation_t_start_ms'))}"
+        )
+
+    # Confirmados mas ainda não ancorados (recap pré-processamento de áudio)
+    pre_anchor = [c for c in commitments
+                  if c.get("state") == "confirmed"
+                  and c.get("anchor_state") in ("pending", None)]
+    for c in pre_anchor:
+        linhas.append(
+            f"  • {c['field']}: {c['value']}   (aguardando âncora no áudio)\n"
+            f"    citação: “{c['quote']}”"
         )
 
     rejeitados = [c for c in commitments if c["anchor_state"] == "not_found"]
