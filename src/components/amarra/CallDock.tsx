@@ -50,7 +50,10 @@ function ring() {
 }
 
 export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean }) {
-  const [pending, setPending] = useState<{ sid?: string; to?: string } | null>(null);
+  const [pending, setPending] = useState<{
+    sid?: string | undefined;
+    to?: string | undefined;
+  } | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const seenInbound = useRef<Set<string>>(new Set());
