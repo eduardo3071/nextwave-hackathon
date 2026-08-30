@@ -270,7 +270,41 @@ function Dashboard() {
             </>
           )}
         </main>
-      ) : (
+
+        <MobileActions
+          operation={operation}
+          auction={auction}
+          phase={phase}
+          ready={state.ready}
+          onRun={(path, ok) => void callBackend(path, undefined, ok)}
+        />
+
+        {showDossier && dossier && (
+          <DossierModal dossier={dossier} onClose={() => setShowDossier(false)} />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <TopBar
+        operation={operation}
+        mandate={mandate}
+        policyBlocks={policyBlocks}
+        anchored={anchored}
+        hasDossier={!!dossier}
+        onOpenDossier={() => setShowDossier(true)}
+      />
+
+      <PhaseRail
+        operation={operation}
+        phaseEvents={phaseEvents}
+        onOpenEscalation={() => {
+          document.getElementById("amarra-escalation")?.scrollIntoView({ behavior: "smooth" });
+        }}
+      />
+
       <main className="grid gap-4 px-5 py-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="min-w-0 space-y-4">
           <CallDock calls={calls} />
