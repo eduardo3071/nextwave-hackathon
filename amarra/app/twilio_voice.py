@@ -46,8 +46,12 @@ def conference_twiml(conf: str, record: bool = True) -> str:
 </Response>"""
 
 
-GREETING = ("Hello, this is the assistant from Textiles Pacifico. "
-            "Do you have a minute?")
+# The greeting bypasses phase4._slow() because it's a TwiML attribute
+# read by ConversationRelay directly. Bake the same pause pattern in
+# statically so the judge hears the same pacing on the first line as
+# on the rest of the conversation.
+GREETING = ("Hello, ... this is the assistant from Textiles Pacifico. "
+            "... Do you have a minute?")
 
 
 def agent_twiml(conf: str, call_id: str, lang: str = "en-US") -> str:

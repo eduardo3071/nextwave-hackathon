@@ -133,27 +133,37 @@ TOOLS = [
 ]
 
 
+import re as _re
+
+
 def _slow(text: str) -> str:
     """
     Slow the agent down using punctuation only — no SSML, no provider
     tags. ConversationRelay ships each `text` token straight to TTS and
     rejects/reads-aloud any XML that leaks through, so we can't rely on
-    <prosody> or <break>. Trailing ellipses and commas around numbers
-    turn into real silence with every TTS engine.
+    <prosody> or <break>.
 
-    Trade-off: the pause is fixed (~150 ms per extra period), not tunable.
-    Good enough to fix "raced through the number" without any risk of
-    breaking the call.
+    Strategy (each ellipsis adds ~150 ms of silence in ElevenLabs):
+      1. Isolate every number FIRST so the digits land distinctly for
+         the judges to jot down — regex accepts digits, commas, dots
+         and colons so amounts like 8,200 and times like 10:00 don't
+         get split apart
+      2. Long pause between sentences
+      3. Short pause after mid-sentence commas
     """
-    # short breath after each sentence
-    padded = (text.replace(". ", "... ")
-                  .replace("? ", "?... ")
-                  .replace("! ", "!... "))
-    # tiny pause before/after numbers so the digits land clearly
-    import re
-    padded = re.sub(r"(\d[\d,\.]*)", r", \1,", padded)
-    # collapse ", ," artifacts from the substitution
-    return padded.replace(", ,", ",").replace(",,", ",")
+    # 1 · isolate numbers (do this FIRST, before the comma-pause layer
+    #     mangles the thousands separators inside the number)
+    padded = _re.sub(r"(\b\d[\d,\.:]*\b)", r"... \1 ...", text)
+    # 2 · sentence boundaries
+    padded = (padded.replace(". ", ". ... ")
+                    .replace("? ", "? ... ")
+                    .replace("! ", "! ... "))
+    # 3 · commas — but skip the ones we just introduced inside numbers,
+    #     which are already surrounded by "..." pause markers
+    padded = _re.sub(r",(?=\s[a-zA-Z])", ", ...", padded)
+    # collapse whitespace artifacts
+    padded = _re.sub(r"\s+", " ", padded).strip()
+    return padded
 
 
 # ═══════════════════════════════════════════════════════════════════════════
