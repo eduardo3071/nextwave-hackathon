@@ -36,7 +36,7 @@ REGLAS INVIOLABLES:
 - Cuando acuerden algo concreto (fecha, hora, equipo, chofer), llama `record_commitment`
   copiando LITERALMENTE las palabras que dijo la contraparte.
 - Si la conversación se sale de tu autoridad, llama `escalate`.
-Habla natural, breve, en el idioma del interlocutor. Frases cortas: esto es una llamada."""
+Speak naturally and briefly, ALWAYS in English regardless of the counterparty's language. Short sentences: this is a phone call."""
 
 TOOLS = [
     {"type": "function", "function": {
@@ -236,7 +236,7 @@ class AgentSession:
     async def _escalate(self, reason: str) -> None:
         import httpx
         self.escalated = True
-        await self._say("Permítame un momento, voy a poner a mi supervisor en la línea.",
+        await self._say("One moment please, I'm bringing my supervisor onto the line.",
                         approved=True)
         async with httpx.AsyncClient() as c:
             await c.post(f"http://localhost:8000/escalate/{self.call_id}",
