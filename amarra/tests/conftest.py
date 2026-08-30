@@ -178,7 +178,7 @@ def auction(monkeypatch):
         return SimpleNamespace(data=None)   # advance_phase é no-op nos testes
 
     calls_by_id = {cid: {"id": cid, "carrier_name": f"C{i}",
-                          "operation_id": op["id"], "language": "es-MX",
+                          "operation_id": op["id"], "language": "en-US",
                           "call_sid": a.legs[cid].sid, "status": "live"}
                     for i, cid in enumerate(call_ids)}
 
@@ -409,8 +409,8 @@ def op_closed() -> dict:
 def slots() -> dict:
     """Slots do caso: valor 8.400 e coleta na quinta 10:00 (Manzanillo)."""
     return {
-        "rate": {"value": "8400", "quote": "ocho mil cuatrocientos"},
-        "pickup_at": {"value": "2026-09-03T10:00:00-06:00", "quote": "jueves diez"},
+        "rate": {"value": "8400", "quote": "eight thousand four hundred"},
+        "pickup_at": {"value": "2026-09-03T10:00:00-06:00", "quote": "Thursday ten"},
     }
 
 

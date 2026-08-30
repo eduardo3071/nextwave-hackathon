@@ -84,7 +84,7 @@ def test_rodadas_esgotadas_escala():
 def test_alavanca_de_mercado_nao_nomeia_concorrente():
     s = st(market_best=Decimal(8400))
     r = evaluate_offer(s, Decimal(8900))
-    assert "mejor" in r.utterance.lower()
+    assert "better" in r.utterance.lower()
     for nome in ("ruiz", "bajío", "bajio", "autolíneas", "autolineas"):
         assert nome not in r.utterance.lower()
 
@@ -92,23 +92,23 @@ def test_alavanca_de_mercado_nao_nomeia_concorrente():
 # ── o gate de áudio ─────────────────────────────────────────────────────────
 def test_gate_bloqueia_valor_nao_aprovado():
     s = st()
-    s.approved_utterances.add("Puedo llegar a 8.200 pesos. ¿Cerramos así?")
-    out, blocked = gate_text(s, "Mira, te lo dejo en 9.500 pesos y cerramos.")
+    s.approved_utterances.add("I can go up to 8,200 pesos. Shall we close on that?")
+    out, blocked = gate_text(s, "Look, I'll leave it at 9,500 pesos and we close.")
     assert blocked is True
-    assert "9.500" not in out
+    assert "9,500" not in out
 
 
 def test_gate_deixa_passar_frase_aprovada():
     s = st()
-    frase = "Cerrado en 8.400 pesos. Te mando la confirmación ahora."
+    frase = "Closed at 8,400 pesos. I'll send you the confirmation now."
     s.approved_utterances.add(frase)
     out, blocked = gate_text(s, frase)
     assert blocked is False and out == frase
 
 
 def test_gate_ignora_texto_sem_valor():
-    out, blocked = gate_text(st(), "Perfecto, ¿a qué hora llega el chofer?")
-    assert blocked is False and out.startswith("Perfecto")
+    out, blocked = gate_text(st(), "Perfect, what time does the driver arrive?")
+    assert blocked is False and out.startswith("Perfect")
 
 
 # ── ataques do trial by fire ───────────────────────────────────────────────

@@ -43,22 +43,16 @@ OPTIONAL_SLOTS = ("equipment", "driver", "mc_number")
 # ═══════════════════════════════════════════════════════════════════════════
 # detecção de afirmação — conservadora de propósito
 # ═══════════════════════════════════════════════════════════════════════════
-AFFIRM = {
-    "es": {"si", "sí", "claro", "correcto", "exacto", "confirmado", "de acuerdo",
-           "va", "vale", "asi es", "así es", "perfecto", "afirmativo", "hecho",
-           "cerramos", "confirmo", "quedamos asi", "quedamos así"},
-    "pt": {"sim", "isso", "correto", "exato", "confirmado", "confirmo", "fechado",
-           "combinado", "certo", "pode ser", "positivo", "isso mesmo", "beleza"},
-}
-NEGATE = {
-    "es": {"no", "negativo", "espera", "espere", "momento", "cambio", "cambia",
-           "corrige", "corrijo", "esta mal", "está mal", "incorrecto", "pero"},
-    "pt": {"nao", "não", "negativo", "espera", "espere", "calma", "muda", "mudar",
-           "corrige", "corrijo", "errado", "incorreto", "mas"},
-}
-HEDGE = {"creo", "acho", "talvez", "quiza", "quizá", "quizas", "quizás",
-         "mais o menos", "mas o menos", "mais ou menos", "possivelmente",
-         "posiblemente", "provavelmente", "probablemente", "quase", "casi"}
+AFFIRM = {"yes", "yeah", "yep", "yup", "correct", "right", "exactly",
+          "confirmed", "confirm", "affirmative", "agreed", "deal", "done",
+          "sure", "perfect", "that is right", "that's right",
+          "sounds good", "we have a deal", "closed"}
+NEGATE = {"no", "nope", "nah", "negative", "wait", "hold on", "hold",
+          "change", "wrong", "incorrect", "not right", "but", "however",
+          "actually", "correction"}
+HEDGE = {"maybe", "perhaps", "probably", "possibly", "kind of", "sort of",
+        "almost", "roughly", "around", "about", "i think", "i guess",
+        "not sure"}
 
 
 def _norm(s: str) -> str:
@@ -82,14 +76,12 @@ def classify_response(text: str) -> str:
     if not t.strip():
         return "ambiguous"
     tokens = set(t.split())
-    todas_neg = NEGATE["es"] | NEGATE["pt"]
-    todas_afr = AFFIRM["es"] | AFFIRM["pt"]
 
-    if tokens & todas_neg or any(f in t for f in todas_neg if " " in f):
+    if tokens & NEGATE or any(f in t for f in NEGATE if " " in f):
         return "rejected"
     if tokens & HEDGE or any(h in t for h in HEDGE if " " in h):
         return "ambiguous"
-    if tokens & todas_afr or any(a in t for a in todas_afr if " " in a):
+    if tokens & AFFIRM or any(a in t for a in AFFIRM if " " in a):
         return "confirmed"
     return "ambiguous"
 
@@ -126,82 +118,46 @@ def read_back_token(slots: dict) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 # a frase — template, nunca modelo
 # ═══════════════════════════════════════════════════════════════════════════
-def _fmt_money(v: str, currency: str, lang: str) -> str:
+def _fmt_money(v: str, currency: str, lang: str | None = None) -> str:
     n = Decimal(re.sub(r"[^\d.]", "", str(v)) or 0)
-    unidade = {"MXN": "pesos", "BRL": "reais", "USD": "dólares"}.get(currency, currency)
+    unidade = {"MXN": "pesos", "BRL": "reais", "USD": "dollars"}.get(currency, currency)
     return f"{n.quantize(Decimal('1')):,.0f} {unidade}".replace(",", ".")
 
 
-DAYS = {
-    "en": ["Monday", "Tuesday", "Wednesday", "Thursday",
-           "Friday", "Saturday", "Sunday"],
-    "es": ["lunes", "martes", "miércoles", "jueves",
-           "viernes", "sábado", "domingo"],
-    "pt": ["segunda", "terça", "quarta", "quinta",
-           "sexta", "sábado", "domingo"],
-}
+DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday",
+        "Friday", "Saturday", "Sunday"]
 
 
-def _lang_key(lang: str) -> str:
-    """en | es | pt — English é o default do produto."""
-    if not lang:
-        return "en"
-    p = lang[:2].lower()
-    return p if p in ("en", "es", "pt") else "en"
-
-
-def _fmt_when(iso: str, lang: str) -> str:
+def _fmt_when(iso: str, lang: str | None = None) -> str:
     try:
         dt = datetime.fromisoformat(str(iso))
     except ValueError:
         return str(iso)
-    days = DAYS.get(_lang_key(lang), DAYS["en"])
-    return f"{days[dt.weekday()]} {dt.strftime('%H:%M')}"
+    return f"{DAYS[dt.weekday()]} {dt.strftime('%H:%M')}"
 
 
-def build_read_back(slots: dict, *, currency: str, lang: str) -> str:
-    L = _lang_key(lang)
+def build_read_back(slots: dict, *, currency: str, lang: str | None = None) -> str:
     partes = []
     if "rate" in slots:
-        partes.append(_fmt_money(slots["rate"]["value"], currency, lang))
+        partes.append(_fmt_money(slots["rate"]["value"], currency))
     if "pickup_at" in slots:
-        quando = _fmt_when(slots["pickup_at"]["value"], lang)
-        prefix = {"en": "pickup", "es": "recolección", "pt": "coleta"}[L]
-        partes.append(f"{prefix} {quando}")
+        quando = _fmt_when(slots["pickup_at"]["value"])
+        partes.append(f"pickup {quando}")
     if "equipment" in slots:
         partes.append(str(slots["equipment"]["value"]))
     if "driver" in slots:
-        cond = {"en": "driver", "es": "chofer", "pt": "motorista"}[L]
-        partes.append(f"{cond} {slots['driver']['value']}")
+        partes.append(f"driver {slots['driver']['value']}")
 
     corpo = ", ".join(partes)
-    if L == "es":
-        return (f"Le repito para confirmar: {corpo}. "
-                f"¿Es correcto? Necesito un sí explícito para cerrarlo.")
-    if L == "pt":
-        return (f"Vou repetir para confirmar: {corpo}. "
-                f"Está correto? Preciso de um sim explícito para fechar.")
     return (f"Let me confirm: {corpo}. "
             f"Is that correct? I need an explicit yes to close.")
 
 
-def ask_missing(faltando: list[str], lang: str) -> str:
-    L = _lang_key(lang)
-    nomes = {
-        "rate":      {"en": "the amount",
-                      "es": "el monto",
-                      "pt": "o valor"},
-        "pickup_at": {"en": "the pickup date and time",
-                      "es": "la fecha y hora de recolección",
-                      "pt": "a data e hora da coleta"},
-    }
-    itens = [nomes[f][L] for f in faltando]
-    join_word = {"en": " and ", "es": " y ", "pt": " e "}[L]
-    lista = join_word.join(itens) if len(itens) > 1 else itens[0]
-    if L == "es":
-        return f"Antes de cerrar me falta {lista}. ¿Me lo confirma?"
-    if L == "pt":
-        return f"Antes de fechar falta {lista}. Pode confirmar?"
+def ask_missing(faltando: list[str], lang: str | None = None) -> str:
+    nomes = {"rate": "the amount",
+             "pickup_at": "the pickup date and time"}
+    itens = [nomes[f] for f in faltando]
+    lista = " and ".join(itens) if len(itens) > 1 else itens[0]
     return f"Before closing I still need {lista}. Can you confirm?"
 
 
@@ -295,12 +251,7 @@ class ReadBack:
 
         if outcome == "rejected":
             self.active = False
-            L = _lang_key(self.s.call.get("language") or "en-US")
-            frase = {
-                "en": "Got it, let's fix that. What's the correct value?",
-                "es": "Perfecto, corrijamos. ¿Cuál es el dato correcto?",
-                "pt": "Perfeito, vamos corrigir. Qual é o dado correto?",
-            }[L]
+            frase = "Got it, let's fix that. What's the correct value?"
             self.s.state.approved_utterances.add(frase)
             await self.s._say(frase, approved=True)
             for c in self.slots.values():
@@ -388,12 +339,7 @@ async def commit_operation(session, slots: dict) -> None:
         await session._escalate(f"commit_guard_failed:{e}")
         return
 
-    L = _lang_key(session.call.get("language") or "en-US")
-    fecho = {
-        "en": "Closed. I'll send you the written confirmation right now. Thank you.",
-        "es": "Cerrado. Le mando ahora mismo la confirmación por escrito. Gracias.",
-        "pt": "Fechado. Já te mando a confirmação por escrito. Obrigado.",
-    }[L]
+    fecho = "Closed. I'll send you the written confirmation right now. Thank you."
     session.state.approved_utterances.add(fecho)
     await session._say(fecho, approved=True)
     session.actions.append({"t": session._ms(), "action": "committed",

@@ -36,13 +36,13 @@ def test_alavanca_nao_vaza_nome_nem_teto(state):
     state.market_best = Decimal(8400)
     r = evaluate_offer(state, Decimal(8900))
     baixo = r.utterance.lower()
-    assert "mejor" in baixo
+    assert "better" in baixo
     for vaz in ("ruiz", "bajío", "bajio", "9000", "9.000"):
         assert vaz not in baixo
 
 
 def test_truncamento_no_barge_in(session):
     session.history.append({"role": "assistant",
-                            "content": "Puedo llegar a 8.200 pesos y cerramos hoy mismo"})
-    session.on_interrupt("Puedo llegar a", 460)
-    assert session.history[-1]["content"] == "Puedo llegar a"
+                            "content": "I can go up to 8,200 pesos and we close today"})
+    session.on_interrupt("I can go up to", 460)
+    assert session.history[-1]["content"] == "I can go up to"

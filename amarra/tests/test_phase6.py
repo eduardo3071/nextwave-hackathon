@@ -8,12 +8,12 @@ from app.phase6_committed import (
 )
 
 
-SIM = ["sí", "si, correcto", "exacto", "confirmado", "va", "sim", "isso mesmo",
-       "fechado", "perfeito, confirmo"]
-NAO = ["no", "no, espera", "sí pero cambia la hora", "sim, mas muda a hora",
-       "está mal", "corrige eso"]
-TALVEZ = ["", "aham", "creo que sí", "acho que sim", "mais ou menos",
-          "hmm", "quizás", "...", "ok?"]
+SIM = ["yes", "yes, correct", "exactly", "confirmed", "sure", "yeah",
+       "that's right", "done", "perfect, confirmed"]
+NAO = ["no", "no, wait", "yes but change the time", "yeah, but change the hour",
+       "that is wrong", "correction"]
+TALVEZ = ["", "uh huh", "i think so", "i guess so", "kind of",
+          "hmm", "maybe", "...", "ok?"]
 
 
 @pytest.mark.parametrize("t", SIM)
@@ -23,7 +23,7 @@ def test_sim_explicito(t):
 
 @pytest.mark.parametrize("t", NAO)
 def test_negacao_vence_afirmacao(t):
-    """'sim, mas muda a hora' é rejeição. Nunca compromisso."""
+    """'yes, but change the time' is a rejection. Never a commitment."""
     assert classify_response(t) == "rejected"
 
 
@@ -48,5 +48,5 @@ def test_falta_termo_material(slots):
 
 
 def test_frase_traz_os_valores_registrados(slots):
-    f = build_read_back(slots, currency="MXN", lang="es-MX")
-    assert "8.400" in f and "jueves" in f and "sí explícito" in f
+    f = build_read_back(slots, currency="MXN")
+    assert "8.400" in f and "Thursday" in f and "explicit yes" in f

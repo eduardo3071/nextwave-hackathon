@@ -40,18 +40,11 @@ BUCKET = os.getenv("SUPABASE_AUDIO_BUCKET", "call-audio")
 # ═══════════════════════════════════════════════════════════════════════════
 # normalização — o pedaço que faz a âncora funcionar de verdade
 # ═══════════════════════════════════════════════════════════════════════════
-UNITS = {
-    "es": {0:"cero",1:"uno",2:"dos",3:"tres",4:"cuatro",5:"cinco",6:"seis",
-           7:"siete",8:"ocho",9:"nueve",10:"diez"},
-    "pt": {0:"zero",1:"um",2:"dois",3:"tres",4:"quatro",5:"cinco",6:"seis",
-           7:"sete",8:"oito",9:"nove",10:"dez"},
-}
-HUNDREDS = {
-    "es": {1:"ciento",2:"doscientos",3:"trescientos",4:"cuatrocientos",5:"quinientos",
-           6:"seiscientos",7:"setecientos",8:"ochocientos",9:"novecientos"},
-    "pt": {1:"cento",2:"duzentos",3:"trezentos",4:"quatrocentos",5:"quinhentos",
-           6:"seiscentos",7:"setecentos",8:"oitocentos",9:"novecentos"},
-}
+UNITS = {0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+         6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten"}
+HUNDREDS = {1: "one hundred", 2: "two hundred", 3: "three hundred",
+            4: "four hundred", 5: "five hundred", 6: "six hundred",
+            7: "seven hundred", 8: "eight hundred", 9: "nine hundred"}
 
 
 def norm(s: str) -> str:
@@ -60,32 +53,30 @@ def norm(s: str) -> str:
     return re.sub(r"[^\w\s]", " ", s)
 
 
-def spell_number(n: int, lang: str = "es") -> str:
+def spell_number(n: int, lang: str | None = None) -> str:
     """
-    8400 → 'ocho mil cuatrocientos'. Cobre a faixa que aparece em frete
-    (centenas e milhares), que é o que precisa funcionar hoje.
+    8400 → 'eight thousand four hundred'. Covers hundreds/thousands, the
+    range that shows up in freight rate quotes.
     """
-    L = "pt" if lang.startswith("pt") else "es"
-    u, h = UNITS[L], HUNDREDS[L]
     partes = []
     milhares, resto = divmod(n, 1000)
     if milhares:
         if milhares == 1:
-            partes.append("mil")
+            partes.append("one thousand")
         else:
-            partes += [u.get(milhares, str(milhares)), "mil"]
+            partes += [UNITS.get(milhares, str(milhares)), "thousand"]
     centenas, resto2 = divmod(resto, 100)
     if centenas:
-        partes.append(h.get(centenas, ""))
+        partes.append(HUNDREDS.get(centenas, ""))
     if resto2:
-        partes.append(u.get(resto2, str(resto2)))
+        partes.append(UNITS.get(resto2, str(resto2)))
     return " ".join(p for p in partes if p)
 
 
-def number_variants(text: str, lang: str = "es") -> list[str]:
+def number_variants(text: str, lang: str | None = None) -> list[str]:
     """
-    Gera as duas formas do mesmo valor. Sem isso, 'ocho mil cuatrocientos'
-    e '8400' nunca se encontram, e você rejeita compromisso legítimo.
+    Both forms of the same value. Without this, 'eight thousand four hundred'
+    and '8400' never meet — and legitimate commitments get rejected.
     """
     out = [norm(text)]
     for m in re.finditer(r"\b\d[\d.,]*\b", text):
@@ -94,7 +85,7 @@ def number_variants(text: str, lang: str = "es") -> list[str]:
             n = int(re.sub(r"[.,]", "", bruto))
         except ValueError:
             continue
-        out.append(norm(text.replace(bruto, spell_number(n, lang))))
+        out.append(norm(text.replace(bruto, spell_number(n))))
     return list(dict.fromkeys(out))
 
 
@@ -147,7 +138,7 @@ async def publish_audio(call_id: str, audio: bytes) -> str | None:
 # ═══════════════════════════════════════════════════════════════════════════
 # a âncora
 # ═══════════════════════════════════════════════════════════════════════════
-def anchor(words: list[dict], quote: str, lang: str = "es") -> dict | None:
+def anchor(words: list[dict], quote: str, lang: str | None = None) -> dict | None:
     """
     Acha a citação no índice de palavras. Três passadas, da mais estrita
     para a mais tolerante, e o método usado fica registrado.
@@ -166,7 +157,7 @@ def anchor(words: list[dict], quote: str, lang: str = "es") -> dict | None:
             "matched": " ".join(w["word"] for w in words[i:i + n]),
         }
 
-    for variante in number_variants(quote, lang):
+    for variante in number_variants(quote):
         toks = variante.split()
         n = len(toks)
         if not n or n > len(idx):

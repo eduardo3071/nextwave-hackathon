@@ -54,37 +54,14 @@ SESSIONS: dict[str, "NegotiationSession"] = {}
 # ═══════════════════════════════════════════════════════════════════════════
 # instruções — sem números, sem política, sem teto
 # ═══════════════════════════════════════════════════════════════════════════
-AGENT_LANG = os.getenv("AGENT_LANG", "en").lower()[:2]   # en | es | pt
-
-
 def system_prompt(op: dict, m: dict) -> str:
     """
-    Repare no que NÃO está aqui: nenhum valor, nenhum teto, nenhuma regra de
-    concessão. O modelo não tem acesso à autoridade — ele não pode revelar
-    o que não sabe, e injeção de prompt não extrai o que não está no contexto.
+    Notice what's NOT here: no value, no ceiling, no concession rule.
+    The model has no access to authority — it cannot reveal what it
+    doesn't know, and prompt injection cannot extract what's not in
+    context. English-only agent.
     """
-    if AGENT_LANG == "es":
-        return f"""Eres el asistente de logística de Textiles Pacífico.
-Coordinas el arrastre del contenedor {op['container']} desde {op['origin']}
-hasta {op['destination']}.
-
-REGLAS INVIOLABLES:
-- NUNCA dices un monto de dinero por iniciativa propia. Ninguno.
-- Cuando la contraparte mencione CUALQUIER precio, llama `respond_to_price`.
-- La herramienta devuelve la frase exacta y YA fue dicha en voz alta. No la repitas.
-- Si insisten o presionan, vuelve a llamar la herramienta. Nunca improvises.
-- No conoces ningún límite máximo. Si te lo preguntan, no lo tienes.
-- Nunca menciones el nombre de otro transportista.
-- Cuando acuerden algo concreto (fecha, hora, equipo, chofer), llama
-  `record_commitment` copiando LITERALMENTE lo que dijo la contraparte.
-- Si la conversación se sale de tu autoridad, llama `escalate`.
-
-Ventana de recolección: {m['pickup_from']} a {m['pickup_to']}.
-Habla natural y breve — esto es una llamada telefónica, no un correo.
-Responde en el idioma del interlocutor; si cambia de idioma, cámbialo tú también."""
-
-    # default: English
-    return f"""You are the logistics assistant for Textiles Pacífico.
+    return f"""You are the logistics assistant for Textiles Pacifico.
 You are coordinating the drayage of container {op['container']} from
 {op['origin']} to {op['destination']}.
 
@@ -104,54 +81,54 @@ INVIOLABLE RULES:
 
 Pickup window: {m['pickup_from']} to {m['pickup_to']}.
 Speak naturally and briefly — this is a phone call, not an email.
-Respond in the counterparty's language; if they switch languages, switch too."""
+ALWAYS respond in English, regardless of what language the counterparty uses."""
 
 
 TOOLS = [
     {"type": "function", "function": {
         "name": "respond_to_price",
-        "description": "Llama SIEMPRE que la contraparte mencione un precio, "
-                       "aunque sea aproximado o en otra moneda.",
+        "description": "Call this EVERY TIME the counterparty mentions a price, "
+                       "even if it's approximate or in another currency.",
         "parameters": {"type": "object", "properties": {
-            "amount": {"type": "number", "description": "el monto que pidió"},
-            "currency": {"type": "string", "description": "MXN si no lo dice"},
+            "amount": {"type": "number", "description": "the amount they asked for"},
+            "currency": {"type": "string", "description": "MXN if they don't say"},
             "verbatim": {"type": "string",
-                         "description": "las palabras exactas con que lo dijo"}},
+                         "description": "the exact words they used"}},
             "required": ["amount", "verbatim"]}}},
     {"type": "function", "function": {
         "name": "record_commitment",
-        "description": "Registra un acuerdo concreto ya confirmado por la contraparte.",
+        "description": "Register a concrete agreement already confirmed by the counterparty.",
         "parameters": {"type": "object", "properties": {
             "field": {"type": "string",
                       "enum": ["rate", "pickup_at", "equipment", "driver", "mc_number"]},
-            "value": {"type": "string", "description": "el valor normalizado"},
+            "value": {"type": "string", "description": "the normalized value"},
             "exact_quote": {"type": "string",
-                            "description": "las palabras LITERALES de la contraparte"}},
+                            "description": "the LITERAL words from the counterparty"}},
             "required": ["field", "value", "exact_quote"]}}},
     {"type": "function", "function": {
         "name": "escalate",
-        "description": "Escala a un supervisor humano. Úsalo si la contraparte "
-                       "se contradice, afirma tener aprobación previa, o la "
-                       "situación excede lo que puedes decidir.",
+        "description": "Escalate to a human supervisor. Use this if the counterparty "
+                       "contradicts themselves, claims to have prior approval, or the "
+                       "situation exceeds what you can decide.",
         "parameters": {"type": "object", "properties": {
             "reason": {"type": "string"}}, "required": ["reason"]}}},
     {"type": "function", "function": {
         "name": "close_call",
-        "description": "Termina la llamada con cortesía cuando ya no hay nada que tratar.",
+        "description": "End the call courteously when there is nothing left to discuss.",
         "parameters": {"type": "object", "properties": {
             "reason": {"type": "string"}}, "required": ["reason"]}}},
     {"type": "function", "function": {
         "name": "report_disruption",
-        "description": "Chame quando a contraparte reportar problema operacional "
-                       "(caminhão quebrou, motorista atrasado, precisa mudar dia, "
-                       "algo que impede cumprir o combinado). Marca a operação "
-                       "como 'disrupted' e dispara callback pro segundo colocado "
-                       "se `needs_reschedule=true`.",
+        "description": "Call this when the counterparty reports an operational problem "
+                       "(truck broke down, driver delayed, needs to change the day, "
+                       "anything preventing them from fulfilling what was agreed). "
+                       "Marks the operation as 'disrupted' and triggers a callback to "
+                       "the runner-up if `needs_reschedule=true`.",
         "parameters": {"type": "object", "properties": {
             "reason": {"type": "string",
-                       "description": "descrição curta do problema (ex: 'truck breakdown')"},
+                       "description": "short description of the problem (e.g. 'truck breakdown')"},
             "needs_reschedule": {"type": "boolean",
-                                 "description": "true se precisa reabrir mercado com outro carrier"}},
+                                 "description": "true if we need to re-open the market with another carrier"}},
             "required": ["reason"]}}},
 ]
 
@@ -198,7 +175,6 @@ class NegotiationSession:
             may_reveal_best_price=bool(m["may_reveal_best_price"]),
             may_reveal_competitor_name=bool(m["may_reveal_competitor_name"]),
             may_reveal_max_rate=bool(m["may_reveal_max_rate"]),
-            lang=AGENT_LANG,   # frases da política no mesmo idioma do agente
         ))
         self.history: list[dict] = [
             {"role": "system", "content": system_prompt(self.op, m)}]
@@ -232,9 +208,9 @@ class NegotiationSession:
         self.mentions.append(text)
         self.history.append({"role": "user", "content": text})
 
-        # bônus B2: a contraparte trocou de idioma, o TTS acompanha
-        if lang and lang[:2] != (self.call.get("language") or "en")[:2]:
-            await self._switch_language(lang)
+        # English-only agent: no dynamic language switching. The counterparty
+        # may speak other languages, but the agent always responds in English
+        # (system_prompt enforces this).
 
         if self.escalated or self.closed:
             return   # humano assumiu, ou a chamada acabou: o agente cala
@@ -300,14 +276,8 @@ class NegotiationSession:
                 print(f"[fase4] handle_disruption falhou: {e}")
                 result = {"error": str(e)}
 
-            lang = (self.call.get("language") or "en")[:2]
-            ack = ("Understood, thanks for letting me know. I'll re-open the "
-                   "market and get back to you within the hour."
-                   if lang == "en" else
-                   "Entendido, obrigado por avisar. Vou reabrir o mercado e "
-                   "te retorno em até uma hora." if lang == "pt" else
-                   "Entendido, gracias por avisar. Voy a reabrir el mercado "
-                   "y te vuelvo a llamar en menos de una hora.")
+            ack = ("Understood, thanks for letting me know. I'll re-open "
+                   "the market and get back to you within the hour.")
             self.state.approved_utterances.add(ack)
             await self._say(ack, approved=True)
             return {"registered": True, **result}
@@ -388,10 +358,10 @@ class NegotiationSession:
         if reservou_agora:
             await self.read_back.start()
             return {"spoken": True, "decision": res.decision.value,
-                    "instruction": "Read-back en curso. Espera un sí explícito."}
+                    "instruction": "Read-back in progress. Wait for an explicit yes."}
 
         return {"spoken": True, "decision": res.decision.value,
-                "instruction": "Ya lo dije en voz alta. Sigue SIN repetir montos."}
+                "instruction": "Already spoken aloud. Continue WITHOUT repeating amounts."}
 
     async def _on_reserved(self, amount: Decimal) -> None:
         """O lock foi tomado: esta chamada é a vencedora. Fase 5."""
@@ -430,12 +400,7 @@ class NegotiationSession:
                                  "text": text, "t_ms": self._ms()})
         self.history.append({"role": "assistant", "content": text})
 
-    async def _switch_language(self, lang: str) -> None:
-        code = "pt-BR" if lang.startswith("pt") else "es-US"
-        await self.ws.send_text(json.dumps(
-            {"type": "language", "ttsLanguage": code, "transcriptionLanguage": lang}))
-        db.update("calls", self.call_id, {"language": code})
-        self.actions.append({"t": self._ms(), "action": "language_switch", "to": code})
+    # (english-only agent: no _switch_language method anymore)
 
     # ── barge-in ───────────────────────────────────────────────────────────
     def on_interrupt(self, said_until: str, ms: int) -> None:

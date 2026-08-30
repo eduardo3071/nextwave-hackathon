@@ -46,44 +46,31 @@ def conference_twiml(conf: str, record: bool = True) -> str:
 </Response>"""
 
 
-GREETINGS = {
-    "en": "Hello, this is the assistant from Textiles Pacífico. Do you have a minute?",
-    "es": "Buenas, le habla el asistente de Textiles Pacífico. ¿Tiene un minuto?",
-    "pt": "Olá, aqui é o assistente da Textiles Pacífico. Tem um minuto?",
-}
+GREETING = "Hello, this is the assistant from Textiles Pacifico. Do you have a minute?"
 
 
 def agent_twiml(conf: str, call_id: str, lang: str = "en-US") -> str:
     """
-    A perna do agente. O ConversationRelay entrega STT, TTS, VAD e barge-in
-    prontos — você só escreve o WebSocket em /ws.
+    Agent leg. ConversationRelay handles STT, TTS, VAD and barge-in
+    natively — you only write the WebSocket at /ws.
 
-    `interruptible` + `reportInputDuringAgentSpeech` são o que fazem o
-    barge-in acontecer (bônus B1). O evento de interrupção precisa TRUNCAR
-    o histórico do modelo, senão ele acha que falou a frase inteira.
+    `interruptible` + `reportInputDuringAgentSpeech` are what enable
+    barge-in (bonus B1). The interruption event must TRUNCATE the
+    model history, otherwise it thinks it said the whole line.
+
+    English-only. Ignores `lang` arg (kept for backward compat).
     """
-    # ConversationRelay aceita locale completo (en-US, es-US, pt-BR).
-    lang_code = (lang or "en-US")
-    lang_short = lang_code[:2]
-    greeting = GREETINGS.get(lang_short, GREETINGS["en"])
-    # Fallback bilíngue: se o interlocutor troca de idioma, o TTS acompanha.
-    fallbacks = {"en": ["es-US", "pt-BR"],
-                 "es": ["en-US", "pt-BR"],
-                 "pt": ["en-US", "es-US"]}.get(lang_short, ["es-US", "pt-BR"])
-    fallback_tags = "\n      ".join(
-        f'<Language code="{c}" ttsProvider="ElevenLabs"/>' for c in fallbacks)
     return f"""<Response>
   <Connect action="https://{PUBLIC_HOST}/twilio/relay-done">
     <ConversationRelay
         url="wss://{PUBLIC_HOST}/ws"
-        language="{lang_code}"
+        language="en-US"
         transcriptionProvider="Deepgram" speechModel="nova-3"
         ttsProvider="ElevenLabs"
         interruptible="speech" interruptSensitivity="high"
         reportInputDuringAgentSpeech="speech"
         ignoreBackchannel="true" dtmfDetection="true"
-        welcomeGreeting="{greeting}">
-      {fallback_tags}
+        welcomeGreeting="{GREETING}">
       <Parameter name="conf" value="{conf}"/>
       <Parameter name="call_id" value="{call_id}"/>
     </ConversationRelay>
