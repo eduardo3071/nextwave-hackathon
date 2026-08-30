@@ -4,6 +4,9 @@ import { CallColumn } from "@/components/amarra/CallColumn";
 import { MarketDock } from "@/components/amarra/MarketDock";
 
 import { CallDock } from "@/components/amarra/CallDock";
+import { MobileActions } from "@/components/amarra/mobile/MobileActions";
+import { MobileHeader } from "@/components/amarra/mobile/MobileHeader";
+import { MobilePhaseStrip } from "@/components/amarra/mobile/MobilePhaseStrip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CommitmentsList } from "@/components/amarra/CommitmentsList";
 import { EscalationPanel } from "@/components/amarra/EscalationPanel";
@@ -40,11 +43,9 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-const DEFAULT_CARRIERS = [
-  { id: "fletes-bajio", name: "Fletes del Bajío", phone: "+551195936644" },
-  { id: "transportes-ruiz", name: "Transportes Ruiz", phone: "+551199703489" },
-  { id: "autolineas-mx", name: "Autolíneas MX", phone: "+551193484301" },
-];
+/** No carriers are invented in the front end: the backend owns the list.
+ *  Local overrides live in localStorage only when the operator types them. */
+const DEFAULT_CARRIERS: { id: string; name: string; phone: string }[] = [];
 
 
 
@@ -132,6 +133,12 @@ function DossierModal({ dossier, onClose }: { dossier: Dossier; onClose: () => v
 }
 
 const MOBILE_TABS = ["transcript", "compromissos", "comparação", "escalação"] as const;
+const TAB_LABEL: Record<(typeof MOBILE_TABS)[number], string> = {
+  transcript: "linha",
+  compromissos: "acordos",
+  "comparação": "leilão",
+  "escalação": "decisão",
+};
 type MobileTab = (typeof MOBILE_TABS)[number];
 
 function Dashboard() {
@@ -177,59 +184,51 @@ function Dashboard() {
   const run = (path: string, body?: unknown, ok?: string) => () =>
     void callBackend(path, body, ok);
 
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <TopBar
-        operation={operation}
-        mandate={mandate}
-        policyBlocks={policyBlocks}
-        anchored={anchored}
-        hasDossier={!!dossier}
-        onOpenDossier={() => setShowDossier(true)}
-      />
+  if (isMobile) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background text-foreground">
+        <MobileHeader
+          operation={operation}
+          mandate={mandate}
+          policyBlocks={policyBlocks}
+          anchored={anchored}
+          hasDossier={!!dossier}
+          onOpenDossier={() => setShowDossier(true)}
+        />
 
-      <PhaseRail
-        operation={operation}
-        phaseEvents={phaseEvents}
-        onOpenEscalation={() => {
-          document.getElementById("amarra-escalation")?.scrollIntoView({ behavior: "smooth" });
-        }}
-      />
-
-      {isMobile ? (
-        <main className="mx-auto w-full max-w-[430px] space-y-5 px-4 py-4">
-          <CallDock calls={calls} big={!operation} />
-          <MarketDock
-            phase={phase}
-            calls={calls}
-            carriers={carriers}
-            onUpdateCarriers={update}
+        <main className="mx-auto w-full max-w-[430px] flex-1 space-y-5 px-4 pt-4 pb-6">
+          <MobilePhaseStrip
+            operation={operation}
+            phaseEvents={phaseEvents}
+            onOpenEscalation={() => setTab("escalação")}
           />
 
+          <CallDock calls={calls} big={!operation} />
+          <MarketDock phase={phase} calls={calls} carriers={carriers} onUpdateCarriers={update} />
 
           {!operation ? (
-            <section className="panel rounded-md px-4 py-10 text-center">
-              <div className="text-4xl">📦</div>
-              <div className="mt-3 text-lg font-bold">Nenhuma operação</div>
-              <div className="num mt-1 text-sm text-muted-foreground">
-                Aguardando descarga do primeiro contêiner
+            <section className="rounded-2xl border border-border bg-card/60 px-5 py-12 text-center">
+              <div className="text-3xl">📦</div>
+              <div className="mt-3 text-base font-bold">Nenhuma operação viva</div>
+              <div className="num mt-1 text-xs text-muted-foreground">
+                a sala acende sozinha quando o backend escreve a primeira linha
               </div>
             </section>
           ) : (
             <>
-              <div className="flex gap-1 overflow-x-auto">
+              <div className="flex gap-1 rounded-full border border-border bg-card/60 p-1">
                 {MOBILE_TABS.map((t) => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => setTab(t)}
-                    className={`num shrink-0 rounded border-2 px-3 py-2 text-xs font-bold uppercase ${
+                    className={`num min-w-0 flex-1 truncate rounded-full px-2 py-2 text-[11px] font-bold tracking-wide uppercase transition ${
                       tab === t
-                        ? "border-accent text-accent"
-                        : "border-border text-muted-foreground"
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground"
                     }`}
                   >
-                    {t}
+                    {TAB_LABEL[t]}
                   </button>
                 ))}
               </div>
@@ -280,7 +279,41 @@ function Dashboard() {
             </>
           )}
         </main>
-      ) : (
+
+        <MobileActions
+          operation={operation}
+          auction={auction}
+          phase={phase}
+          ready={state.ready}
+          onRun={(path, ok) => void callBackend(path, undefined, ok)}
+        />
+
+        {showDossier && dossier && (
+          <DossierModal dossier={dossier} onClose={() => setShowDossier(false)} />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <TopBar
+        operation={operation}
+        mandate={mandate}
+        policyBlocks={policyBlocks}
+        anchored={anchored}
+        hasDossier={!!dossier}
+        onOpenDossier={() => setShowDossier(true)}
+      />
+
+      <PhaseRail
+        operation={operation}
+        phaseEvents={phaseEvents}
+        onOpenEscalation={() => {
+          document.getElementById("amarra-escalation")?.scrollIntoView({ behavior: "smooth" });
+        }}
+      />
+
       <main className="grid gap-4 px-5 py-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="min-w-0 space-y-4">
           <CallDock calls={calls} />
@@ -357,7 +390,7 @@ function Dashboard() {
           )}
         </aside>
       </main>
-      )}
+
 
 
       <footer className="sticky bottom-0 z-30 border-t border-border bg-background/97 px-5 py-3 backdrop-blur">
