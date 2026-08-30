@@ -132,14 +132,49 @@ function DossierModal({ dossier, onClose }: { dossier: Dossier; onClose: () => v
   );
 }
 
-const MOBILE_TABS = ["transcript", "commitments", "comparison", "escalation"] as const;
-const TAB_LABEL: Record<(typeof MOBILE_TABS)[number], string> = {
-  transcript: "line",
-  commitments: "deals",
-  comparison: "auction",
-  escalation: "decision",
+const TABS = [
+  "start",
+  "transcript",
+  "comparison",
+  "escalation",
+  "timeline",
+  "recap",
+] as const;
+const TAB_LABEL: Record<(typeof TABS)[number], string> = {
+  start: "start",
+  transcript: "transcript",
+  comparison: "quotes",
+  escalation: "escalation",
+  timeline: "timeline",
+  recap: "recap",
 };
-type MobileTab = (typeof MOBILE_TABS)[number];
+type MobileTab = (typeof TABS)[number];
+
+function TabBar({
+  tab,
+  setTab,
+}: {
+  tab: MobileTab;
+  setTab: (t: MobileTab) => void;
+}) {
+  return (
+    <div className="flex gap-1 rounded-full border border-border bg-card/60 p-1">
+      {TABS.map((t) => (
+        <button
+          key={t}
+          type="button"
+          onClick={() => setTab(t)}
+          className={`num min-w-0 flex-1 truncate rounded-full px-2 py-2 text-[11px] font-bold tracking-wide uppercase transition ${
+            tab === t ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+          }`}
+        >
+          {TAB_LABEL[t]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 
 function Dashboard() {
   const isMobile = useIsMobile();
