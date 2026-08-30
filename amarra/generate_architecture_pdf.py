@@ -1,6 +1,6 @@
 """
-Gera ARCHITECTURE.pdf — diagrama de arquitetura em uma página A3 landscape.
-Uso: python generate_architecture_pdf.py
+Generate ARCHITECTURE.pdf — architecture diagram on a single A3 landscape page.
+Usage: python generate_architecture_pdf.py
 """
 from __future__ import annotations
 
@@ -59,16 +59,16 @@ def main():
     ax.set_facecolor("#0d1826")
 
     # ── Title
-    ax.text(8.25, 11.2, "AMARRA · Arquitetura", ha="center", fontsize=18,
+    ax.text(8.25, 11.2, "AMARRA - Architecture", ha="center", fontsize=18,
             color="#4de3d4", weight="bold")
     ax.text(8.25, 10.85,
-            "Agente de voz para negociação de frete · NextWave 2026 · Desafio 04",
+            "Voice agent for freight negotiation - NextWave 2026 - Challenge 04",
             ha="center", fontsize=10, color="#8bc4bb")
 
     # ═════ FRONTEND ROW ═════
     box(ax, (0.5, 9.2), (15.5, 1.3),
-        "FRONTEND · https://nextwave-hackathon.lovable.app",
-        sub="Vite + React + TanStack Router · mobile-first (430px) · Supabase Realtime",
+        "FRONTEND - https://nextwave-hackathon.lovable.app",
+        sub="Vite + React + TanStack Router - mobile-first (430px) - Supabase Realtime",
         color="#132a45", edge="#7dd3fc", radius=0.2)
 
     # Frontend components
@@ -84,11 +84,11 @@ def main():
 
     # ═════ BACKEND ═════
     box(ax, (0.5, 5.3), (15.5, 3.5),
-        "BACKEND · FastAPI + uvicorn (via ngrok  clique-lukewarm-frail.ngrok-free.dev)",
+        "BACKEND - FastAPI + uvicorn (via ngrok clique-lukewarm-frail.ngrok-free.dev)",
         sub="",
         color="#1a2b2a", edge="#4de3d4", radius=0.2)
 
-    ax.text(8.25, 8.3, "9 routers + 3 endpoints Twilio + WebSocket /ws",
+    ax.text(8.25, 8.3, "9 routers + 6 Twilio endpoints + WebSocket /ws",
             ha="center", fontsize=8, color="#8bc4bb", family="monospace")
 
     # Endpoints boxes
@@ -135,22 +135,22 @@ def main():
             arrow(ax, (x + 1.72, spine_y + 0.3),
                   (x + 1.83, spine_y + 0.3), color="#4de3d4", style="-|>", lw=0.8)
 
-    ax.text(8.25, 6.4, "SPINE DE 8 FASES", ha="center", fontsize=8,
+    ax.text(8.25, 6.4, "8-PHASE SPINE", ha="center", fontsize=8,
             color="#8bc4bb", weight="bold")
 
     # Branches
-    ax.text(8.25, 5.5, "desvios: disrupted → renegotiating → escalated → resolved",
+    ax.text(8.25, 5.5, "branches: disrupted -> renegotiating -> escalated -> resolved",
             ha="center", fontsize=6.5, color="#f59e0b", style="italic")
 
     # ═════ EXTERNAL SERVICES ═════
     services = [
-        ("TWILIO", "Voice + ConversationRelay\nCalls · Conferences · Recording",
+        ("TWILIO", "Voice + ConversationRelay\nCalls - Conferences - Recording",
          "#5a1a1a", "#f87171"),
-        ("DEEPGRAM", "nova-3 ASR (audio → words\nwith timestamps)",
+        ("DEEPGRAM", "nova-3 ASR (audio -> words\nwith timestamps)",
          "#1a3a5a", "#7dd3fc"),
         ("OPENAI", "gpt-4.1-mini\n(negotiation reasoning)",
          "#1a3a2a", "#86efac"),
-        ("RESEND", "Email SMTP\n(recap R3a)",
+        ("RESEND", "Email SMTP\n(R3a recap)",
          "#3a2a1a", "#fbbf24"),
     ]
     for i, (name, sub, bg, edge) in enumerate(services):
@@ -159,8 +159,8 @@ def main():
 
     # ═════ SUPABASE ═════
     box(ax, (0.5, 0.6), (15.5, 2.3),
-        "SUPABASE · Postgres + Realtime + Storage",
-        sub="RLS off para demo (permissivo em leitura, service_role escreve)",
+        "SUPABASE - Postgres + Realtime + Storage",
+        sub="RLS off for demo (permissive on read, service_role writes)",
         color="#2d1a3a", edge="#a78bfa", radius=0.2)
 
     # Tables
@@ -197,31 +197,29 @@ def main():
             family="monospace", style="italic")
 
     # ═════ ARROWS between layers ═════
-    # Frontend → Backend (actions)
+    # Frontend -> Backend (actions)
     arrow(ax, (5, 9.2), (5, 8.8), "POST actions\n(HTTPS)", color="#7dd3fc")
-    # Backend → Frontend (via Realtime)
+    # Backend -> Frontend (via Realtime)
     arrow(ax, (11.5, 2.9), (11.5, 9.2),
           "Realtime\npub/sub", color="#a78bfa", rad=-0.3)
 
-    # Backend → external services
+    # Backend -> external services
     arrow(ax, (2.5, 5.3), (2.5, 4.7), None, color="#f87171")
     arrow(ax, (6.5, 5.3), (6.5, 4.7), None, color="#7dd3fc")
     arrow(ax, (10.5, 5.3), (10.5, 4.7), None, color="#86efac")
     arrow(ax, (14, 5.3), (14, 4.7), None, color="#fbbf24")
 
-    # External → Backend (webhooks/callbacks)
+    # External -> Backend (webhooks/callbacks)
     arrow(ax, (2, 4.7), (2, 5.3), "webhooks",
           color="#f87171", style="-|>", lw=0.8)
 
-    # Backend → Supabase (write)
+    # Backend -> Supabase (write)
     arrow(ax, (4, 3.2), (4, 2.9), "service_role\nwrite", color="#a78bfa")
-    # Supabase → Frontend (realtime)
-    # already drawn above
 
     # Footer
     ax.text(8.25, 0.25,
-            "23 tabelas · 9 fases (8 espinha + 4 desvios) · 951 pytest verdes · "
-            "13 endpoints REST + 6 webhooks Twilio + 1 WebSocket",
+            "13 tables - 9 phases (8 spine + 4 branches) - 951 pytest cases green - "
+            "13 REST endpoints + 6 Twilio webhooks + 1 WebSocket",
             ha="center", fontsize=7, color="#8bc4bb", family="monospace")
 
     plt.savefig("amarra/ARCHITECTURE.pdf", format="pdf",
@@ -229,7 +227,7 @@ def main():
     plt.savefig("amarra/ARCHITECTURE.png", format="png",
                 facecolor=fig.get_facecolor(), bbox_inches="tight",
                 pad_inches=0.3, dpi=180)
-    print("OK amarra/ARCHITECTURE.pdf + ARCHITECTURE.png gerados")
+    print("OK amarra/ARCHITECTURE.pdf + ARCHITECTURE.png regenerated in English")
 
 
 if __name__ == "__main__":

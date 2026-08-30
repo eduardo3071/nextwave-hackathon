@@ -1,379 +1,379 @@
-# Registro de Voo · Amarra
+# Flight Log · Amarra
 
-Log narrativo das decisões de arquitetura, produto e infraestrutura tomadas ao longo da construção do Amarra para o NextWave Hackathon 2026 · Desafio 04 "The Agent on the Line".
+Narrative log of the architecture, product, and infrastructure decisions taken while building Amarra for the NextWave Hackathon 2026 · Challenge 04 "The Agent on the Line".
 
-Cada entrada tem: **decisão**, **alternativas consideradas**, **por quê**, **consequência** (o que essa decisão obrigou depois).
-
----
-
-## D01 · Escolher "compromisso" como átomo do sistema, não "chamada"
-
-**Alternativas:**
-1. Modelar como transcrição + extração posterior via LLM
-2. Modelar como intents + entidades detectadas por chamada
-3. Modelar como **compromissos verificados** que só existem se ancorados no áudio ✓
-
-**Decisão:** #3.
-
-**Por quê:** O enunciado é literal — "commitments, not transcripts". Uma transcrição é auditoria fraca porque o LLM pode alucinar; um compromisso ancorado no áudio + confirmado por read-back + amarrado ao mandato tem propriedades de contrato. Isso vira o átomo do produto e também abre porta pra recebível on-chain no futuro (design em INBOUND_PIPELINE.md).
-
-**Consequência:** Toda a fase 6 (read-back) e fase 7 (âncora) existem por causa disso. Sem o átomo certo, seriam features cosméticas; com ele, viraram invariantes de sistema.
+Each entry has: **decision**, **alternatives considered**, **why**, **consequence** (what that decision forced downstream).
 
 ---
 
-## D02 · 8 fases + 4 desvios como espinha explícita, com guardas no advance()
+## D01 · Pick "commitment" as the system's atomic unit, not "call"
 
-**Alternativas:**
-1. Estados livres, cada endpoint muda o que quiser
-2. Máquina de estados leve (só valida transições permitidas)
-3. Máquina de estados **com guardas semânticas** que codificam invariantes ✓
+**Alternatives:**
+1. Model as transcript + later LLM extraction
+2. Model as intents + entities detected per call
+3. Model as **verified commitments** that only exist when anchored in the audio ✓
 
-**Decisão:** #3.
+**Decision:** #3.
 
-**Por quê:** Se `verified` só exige transição válida, a fase pode avançar sem compromisso ancorado. Se `closed` só exige transição válida, a operação fecha sem recap enviado. Se as guardas consultam o banco (`SELECT count(*) FROM commitments WHERE anchor_state='anchored'` antes de permitir `verified`), o painel LITERALMENTE não pode mentir.
+**Why:** The challenge is literal — "commitments, not transcripts." A transcript is weak audit because the LLM can hallucinate; a commitment anchored in the audio + confirmed by read-back + tied to the mandate has the properties of a contract. That becomes the product's atom and also opens the door to on-chain receivables in the future (design in INBOUND_PIPELINE.md).
 
-**Consequência:** `phases.py::advance()` chama `_guard()` que faz queries no banco. Isso é lento em comparação com máquinas puras (~50ms por transição vs microssegundos), mas o custo vale — o pitch pode dizer "cada fase codifica uma invariante" e mostrar SQL.
-
----
-
-## D03 · Policy engine puro (sem LLM) — o modelo NUNCA fala número que ele inventou
-
-**Alternativas:**
-1. Deixar o modelo negociar livremente e conferir depois
-2. Modelo negocia, política "revisa" no fim
-3. Modelo **chama tool** `respond_to_price`, política **decide**, agente **fala a frase exata** devolvida pela política, sem passar pelo modelo de novo ✓
-
-**Decisão:** #3 + um gate de segurança (`gate_text`) que bloqueia qualquer valor não pré-aprovado que vaze.
-
-**Por quê:** Existe benchmark publicado de 2026 mostrando que modelos de fronteira violam mandato mesmo quando negociam bem — raciocínio econômico e cumprimento de restrição são desacoplados no modelo. Portanto a restrição não pode morar no modelo. Isso é a razão do policy_events ter 800+ testes em pytest com invariante "nunca ALLOW acima do teto".
-
-**Consequência:** Toda a lógica de contra-oferta é pré-computada na fase 2 (`concession_ladder`). O modelo é um cliente burro do policy engine.
+**Consequence:** All of phase 6 (read-back) and phase 7 (anchor) exist because of this. Without the right atom, they'd be cosmetic features; with it, they became system invariants.
 
 ---
 
-## D04 · Mandato como HASH canônico (identidade da autoridade)
+## D02 · 8 phases + 4 branches as an explicit spine, with guards inside advance()
 
-**Alternativas:**
-1. Mandato é só uma linha em `mandates` com target/max
-2. Mandato tem versionamento simples (`updated_at`)
-3. Mandato é **hash de forma canônica** que aparece em cada `policy_events` e `commitments` ✓
+**Alternatives:**
+1. Free states, each endpoint changes whatever it wants
+2. Lightweight state machine (only validates allowed transitions)
+3. State machine **with semantic guards** that codify invariants ✓
 
-**Decisão:** #3.
+**Decision:** #3.
 
-**Por quê:** O enunciado pergunta "under which mandate" (R3 do R4). Se alguém muda o teto no meio da operação, o hash muda e a trilha auditável mostra exatamente sob qual autoridade cada decisão foi tomada. É a mesma ideia de commit hash do git, mas pra autoridade delegada.
+**Why:** If `verified` only requires a valid transition, the phase can advance without an anchored commitment. If `closed` only requires a valid transition, the operation closes without a recap sent. If guards query the database (`SELECT count(*) FROM commitments WHERE anchor_state='anchored'` before allowing `verified`), the panel LITERALLY cannot lie.
 
-**Consequência:** Fase 2 tem `canonicalize()` + `mandate_hash()`. Cada `policy_events` e `commitments` carrega `mandate_hash text`. Rota `/phase2/verify/{op_id}` recalcula o hash a partir do canonical guardado — divergência prova adulteração.
-
----
-
-## D05 · Escalation band pré-computada (a faixa "bom e proibido")
-
-**Alternativas:**
-1. Escalar sempre que `ask > max_rate` (comportamento binário)
-2. Deixar o modelo decidir quando escalar
-3. **Pré-computar** na fase 2 a faixa `[max_rate, break_even]` como "escalation_band". Se `ask` cai nela, escala; se acima do break-even, recusa e segue. ✓
-
-**Decisão:** #3.
-
-**Por quê:** Entre o teto e o ponto de equilíbrio existe uma zona onde fechar é **economicamente correto E politicamente proibido**. O agente escala porque o sistema NOMEOU essa faixa antes da primeira ligação. Isso separa "o agente se confundiu" de "o sistema previu esta situação". No caso do pitch, é o 9200 pesos da Transportes Ruiz — Amarra recusa porque teto=9000, mas escala porque break_even=10400 (economicamente melhor que perder 1 dia de demurrage).
-
-**Consequência:** `escalation_triggers` do mandato inclui `within_escalation_band`. Card de escalação renderiza a conta lado a lado (opção on-time vs late) com "excede mandato em X pesos" — o humano decide em 9 segundos.
+**Consequence:** `phases.py::advance()` calls `_guard()` which queries the DB. That's slow compared to pure state machines (~50ms per transition vs microseconds), but the cost is worth it — the pitch can say "each phase codifies an invariant" and show the SQL.
 
 ---
 
-## D06 · Lock de reserva ATÔMICO no Postgres (não asyncio.Lock)
+## D03 · Pure policy engine (no LLM) — the model NEVER speaks a number it invented
 
-**Alternativas:**
-1. `asyncio.Lock` em processo (funciona com 1 worker)
+**Alternatives:**
+1. Let the model negotiate freely and check afterwards
+2. Model negotiates, policy "reviews" at the end
+3. Model **calls a tool** `respond_to_price`, policy **decides**, agent **says the exact phrase** returned by policy, without going through the model again ✓
+
+**Decision:** #3 + a safety gate (`gate_text`) that blocks any non-pre-approved value that leaks.
+
+**Why:** There's a published 2026 benchmark showing frontier models violate their mandate even when they negotiate well — economic reasoning and constraint satisfaction are decoupled in the model. So the constraint cannot live in the model. That's why policy_events has 800+ pytest cases with the invariant "never ALLOW above the ceiling."
+
+**Consequence:** All the counter-offer logic is pre-computed in phase 2 (`concession_ladder`). The model is a dumb client of the policy engine.
+
+---
+
+## D04 · Mandate as canonical HASH (authority identity)
+
+**Alternatives:**
+1. Mandate is just a row in `mandates` with target/max
+2. Mandate has simple versioning (`updated_at`)
+3. Mandate is a **hash of canonical form** that appears on every `policy_events` and `commitments` ✓
+
+**Decision:** #3.
+
+**Why:** The challenge asks "under which mandate" (R3 of R4). If someone changes the ceiling mid-operation, the hash changes and the auditable trail shows exactly under which authority each decision was made. Same idea as a git commit hash, but for delegated authority.
+
+**Consequence:** Phase 2 has `canonicalize()` + `mandate_hash()`. Every `policy_events` and `commitments` row carries `mandate_hash text`. Route `/phase2/verify/{op_id}` recomputes the hash from the stored canonical — divergence proves tampering.
+
+---
+
+## D05 · Pre-computed escalation band (the "good and forbidden" zone)
+
+**Alternatives:**
+1. Escalate whenever `ask > max_rate` (binary behavior)
+2. Let the model decide when to escalate
+3. **Pre-compute** in phase 2 the band `[max_rate, break_even]` as "escalation_band". If `ask` falls into it, escalate; if above break-even, refuse and move on. ✓
+
+**Decision:** #3.
+
+**Why:** Between the ceiling and the break-even point there's a zone where closing is **economically correct AND politically forbidden**. The agent escalates because the system NAMED that band before the first call. This separates "the agent got confused" from "the system predicted this situation." In the pitch's case, it's Transportes Ruiz's 9200 pesos — Amarra refuses because ceiling=9000, but escalates because break_even=10400 (economically better than losing a day of demurrage).
+
+**Consequence:** `escalation_triggers` in the mandate includes `within_escalation_band`. The escalation card renders the math side-by-side (on-time option vs late option) with "exceeds mandate by X pesos" — the human decides in 9 seconds.
+
+---
+
+## D06 · ATOMIC reservation lock in Postgres (not asyncio.Lock)
+
+**Alternatives:**
+1. `asyncio.Lock` in-process (works with 1 worker)
 2. Lock via Redis / distributed lock
-3. **`UPDATE ... WHERE reserved_by IS NULL` dentro de `SELECT FOR UPDATE`** — Postgres ✓
+3. **`UPDATE ... WHERE reserved_by IS NULL` inside `SELECT FOR UPDATE`** — Postgres ✓
 
-**Decisão:** #3.
+**Decision:** #3.
 
-**Por quê:** A primeira versão usava asyncio.Lock. Cai na primeira pergunta séria do júri: "e se subirem 2 workers?". Postgres já tem primitiva atômica pra isso (row lock). Zero infra extra, e o teto é reverificado NO POSTGRES — cinto e suspensórios além do policy engine.
+**Why:** The first version used asyncio.Lock. Falls apart at the first serious juror question: "what if you scale to 2 workers?". Postgres already has an atomic primitive for this (row lock). Zero extra infra, and the ceiling is re-verified INSIDE POSTGRES — belt and suspenders beyond the policy engine.
 
-**Consequência:** Fase 5 tem função stored `try_reserve_auction(op_id, call_id, amount, reason)` que faz o UPDATE atômico. Cliente Python é 3 linhas. Ganha ponto na defesa técnica: "vale com 1 worker ou com 10".
+**Consequence:** Phase 5 has a stored function `try_reserve_auction(op_id, call_id, amount, reason)` that does the atomic UPDATE. The Python client is 3 lines. Wins points in the technical defense: "holds with 1 worker or with 10."
 
 ---
 
-## D07 · Backend nunca fala com o frontend — só escreve no Supabase
+## D07 · Backend never talks to the frontend — only writes to Supabase
 
-**Alternativas:**
-1. WebSocket próprio do backend pro painel
+**Alternatives:**
+1. Own WebSocket from backend to panel
 2. Server-Sent Events (SSE)
-3. **Supabase Realtime pub/sub** — backend só escreve, painel só lê ✓
+3. **Supabase Realtime pub/sub** — backend only writes, panel only reads ✓
 
-**Decisão:** #3.
+**Decision:** #3.
 
-**Por quê:** Elimina toda a complexidade de: manter conexões vivas do painel, autenticação de WebSocket, CORS pro WS, reconexão. Supabase Realtime é WebSocket já resolvido. Backend fica statelesss no que toca ao painel.
+**Why:** Eliminates all the complexity of: keeping panel connections alive, WebSocket authentication, WS CORS, reconnection. Supabase Realtime is WebSocket already solved. Backend stays stateless as far as the panel is concerned.
 
-**Consequência:** RLS aberto pra leitura anônima (é demo). Painel usa `supabase.channel().on('postgres_changes', ...)` pra 13 tabelas. Prompt do Lovable diz literalmente "Assine, não pergunte".
-
----
-
-## D08 · ConversationRelay em vez de Media Streams (Twilio)
-
-**Alternativas:**
-1. Twilio Media Streams: stream de áudio bruto, você resolve STT/TTS/VAD/barge-in
-2. **Twilio ConversationRelay: STT + TTS + VAD + barge-in prontos, você só escreve o WebSocket de conversa** ✓
-
-**Decisão:** #2.
-
-**Por quê:** Media Streams economiza 2 semanas se você precisa controle profundo do áudio (background music, mixer custom, etc). Não é o caso — o Amarra só precisa "receber transcrição, responder texto, sobreviver interrupção". ConversationRelay entrega isso e mais: `interruptible="speech"`, `reportInputDuringAgentSpeech`, Deepgram nova-3 nativo, ElevenLabs TTS.
-
-**Consequência:** Toda a fase 4 é 300 linhas de Python. Se fosse Media Streams, seriam ~2000 linhas + integração com Deepgram streaming + gerenciar filas de áudio.
+**Consequence:** RLS open for anonymous reads (it's a demo). Panel uses `supabase.channel().on('postgres_changes', ...)` for 13 tables. The Lovable prompt literally says "subscribe, don't poll."
 
 ---
 
-## D09 · TwiML App + Conference (não `<Dial><Number>` direto)
+## D08 · ConversationRelay instead of Media Streams (Twilio)
 
-**Alternativas:**
-1. `<Dial><Number>` direto — mais simples pra 1-to-1
-2. **`<Dial><Conference>` + injeção de perna do agente** ✓
+**Alternatives:**
+1. Twilio Media Streams: raw audio stream, you handle STT/TTS/VAD/barge-in
+2. **Twilio ConversationRelay: STT + TTS + VAD + barge-in built in, you only write the conversation WebSocket** ✓
 
-**Decisão:** #2.
+**Decision:** #2.
 
-**Por quê:** Sem Conference, não dá pra injetar um humano depois sem cortar o áudio. E injetar humano sem cortar áudio é o requisito **R6** do enunciado (escalação mid-call). Se a chamada não está numa Conference desde o segundo zero, a escalação exige derrubar+reconectar (perde contexto, perde robustez).
+**Why:** Media Streams saves 2 weeks if you need deep audio control (background music, custom mixer, etc). Not our case — Amarra just needs to "receive transcription, respond with text, survive interruption." ConversationRelay delivers that and more: `interruptible="speech"`, `reportInputDuringAgentSpeech`, native Deepgram nova-3, ElevenLabs TTS.
 
-**Consequência:** Toda chamada nasce dentro de `<Conference>`. Escalação usa `join_human(coaching=True)` — supervisor entra MUDO, agente ouve, quando `coaching=False` o humano fala com todos. Ninguém desligou. R6 é uma linha de código, não uma arquitetura.
-
----
-
-## D10 · Deepgram nova-3 pós-chamada (não em real time durante a call)
-
-**Alternativas:**
-1. Deepgram nova-3 em real-time durante a chamada, ancorar palavras conforme chegam
-2. **Gravar a conference inteira; ancorar DEPOIS via Deepgram batch** ✓
-
-**Decisão:** #2.
-
-**Por quê:** ConversationRelay já dá transcrição pra tomada de decisão em tempo real (via Twilio's own Deepgram config). Precisar do TIMESTAMP POR PALAVRA pra ancoragem só faz sentido pós-chamada, quando você tem o compromisso completo pra buscar no áudio. Rodar 2 pipelines de Deepgram (real-time + batch) seria caro sem ganho.
-
-**Consequência:** Fase 7 baixa a gravação Twilio, envia bytes pro Deepgram, recebe words com start/end, casa cada `commitments.quote` no índice. `number_variants` gera "ocho mil cuatrocientos" quando o quote é "8400" e vice-versa — sem isso, ancoragem falha em números falados.
+**Consequence:** All of phase 4 is 300 lines of Python. If it were Media Streams, it'd be ~2000 lines + Deepgram streaming integration + managing audio queues.
 
 ---
 
-## D11 · Read-back token (o "sim" preso a valores específicos)
+## D09 · TwiML App + Conference (not direct `<Dial><Number>`)
 
-**Alternativas:**
-1. Aceitar "sim" da contraparte como confirmação genérica
-2. Aceitar "sim" só se dito em janela temporal específica
-3. **Hash dos slots ("read_back_token"); se qualquer valor mudar, o token muda e o "sim" antigo vira `superseded`** ✓
+**Alternatives:**
+1. Direct `<Dial><Number>` — simpler for 1-to-1
+2. **`<Dial><Conference>` + agent-leg injection** ✓
 
-**Decisão:** #3.
+**Decision:** #2.
 
-**Por quê:** Contraparte fala "sim, 8500, quinta 10h" e depois muda pra "9000, sexta". O "sim" do primeiro não vale pro segundo. Token = hash dos valores no momento da fala; se qualquer valor mudou, token muda, `outcome='superseded'`, agente relê. E `classify_response` é conservador — silêncio, "aham", hedge nunca viram sim.
+**Why:** Without Conference, you can't inject a human later without cutting the audio. And injecting a human without cutting audio is requirement **R6** of the challenge (mid-call escalation). If the call isn't in a Conference from second zero, escalation requires drop+reconnect (loses context, loses robustness).
 
-**Consequência:** Fase 6 tem PHRASES + classify_response + read_back_token + 28 testes cobrindo cada variante de sim/não/ambíguo. Trial by fire ("agree and then change") tem resposta pré-testada.
-
----
-
-## D12 · Fases 1-8 como MÓDULOS separados, não god-class
-
-**Alternativas:**
-1. Um único `amarra_engine.py` com todas as fases
-2. **`phase1_detected.py` até `phase8_closed.py` + `phase_disruption.py`**, cada um com router próprio ✓
-
-**Decisão:** #2.
-
-**Por quê:** Facilita defesa técnica ("me mostra a fase 5") + facilita test isolation (cada fase tem seu test_phaseN.py). Também mapeia 1:1 com o rail visual do painel, o que reduz cognitive load pra jurado seguir a demo.
-
-**Consequência:** 9 arquivos `phase*.py`, cada um ~200-400 linhas. main.py só faz orquestração. Custo: importar entre fases exige cuidado (fase 4 importa fase 5 e 6, mas fase 5 e 6 não podem importar fase 4). Circular imports resolvidos com late-import dentro de funções.
+**Consequence:** Every call is born inside a `<Conference>`. Escalation uses `join_human(coaching=True)` — supervisor enters MUTED, agent hears, when `coaching=False` the human speaks to everyone. Nobody hung up. R6 is one line of code, not an architecture.
 
 ---
 
-## D13 · Auto-reset da operação em `/demo/dial-market`
+## D10 · Deepgram nova-3 post-call (not real-time during the call)
 
-**Alternativas:**
-1. Cada disparo precisa reset manual via SQL
-2. Endpoint separado `/demo/reset`
-3. **`/demo/dial-market` faz auto-reset a menos que passe `reset: false`** ✓
+**Alternatives:**
+1. Deepgram nova-3 real-time during the call, anchor words as they arrive
+2. **Record the entire conference; anchor AFTERWARDS via Deepgram batch** ✓
 
-**Decisão:** #3.
+**Decision:** #2.
 
-**Por quê:** Sem isso, cada teste do botão "ABRIR MERCADO" no painel bate no admit() com "operação está em 'negotiating'". Botão do painel vira um-clique-e-funciona. Trade-off: se você QUERIA preservar a operação anterior (pra auditoria), tem que passar `reset:false` explícito.
+**Why:** ConversationRelay already gives transcription for real-time decision making (via Twilio's own Deepgram config). Needing WORD-LEVEL TIMESTAMPS for anchoring only makes sense post-call, when you have the complete commitment to look up in the audio. Running 2 Deepgram pipelines (real-time + batch) would be expensive without gain.
 
-**Consequência:** `_demo_reset()` apaga `calls`, `auctions`, `phase_events` da operação e devolve pra `mandate_issued`. Preserva `mandates` (hash não muda). Endpoint `/demo/reset` também exposto pra reset explícito.
-
----
-
-## D14 · Idioma default = inglês (AGENT_LANG=en), não espanhol
-
-**Alternativas:**
-1. Espanhol default (o caso é Manzanillo, mercado da Nauta é LatAm)
-2. **Inglês default; pt/es como fallbacks quando o carrier explicitamente fala** ✓
-
-**Decisão:** #2.
-
-**Por quê:** Jurado do NextWave é internacional (Y.uno, Yuno). Inglês é lingua franca. Bônus B2 do enunciado permite mistura de idiomas — implementamos com `_switch_language` que sente troca de idioma via Deepgram e reconfigura TTS on-the-fly. Se o jurado quiser testar em espanhol, o agente acompanha.
-
-**Consequência:** Toda frase da política tem 3 branches (en/es/pt). Testes em espanhol preservados via `Mandate.lang` default "es" (só a sessão runtime usa "en" via env var). PHRASES dict + `_lang_key` helper.
+**Consequence:** Phase 7 downloads the Twilio recording, sends bytes to Deepgram, receives words with start/end, matches each `commitments.quote` against the index. `number_variants` generates "ocho mil cuatrocientos" when the quote is "8400" and vice versa — without this, anchoring fails on spoken numbers.
 
 ---
 
-## D15 · SMS DESCARTADO — email é canal único do R3a
+## D11 · Read-back token (the "yes" bound to specific values)
 
-**Alternativas:**
-1. SMS via Twilio (custa ~$0.03/msg BR)
+**Alternatives:**
+1. Accept counterparty's "yes" as generic confirmation
+2. Accept "yes" only within a specific time window
+3. **Hash of the slots ("read_back_token"); if any value changes, the token changes and the old "yes" becomes `superseded`** ✓
+
+**Decision:** #3.
+
+**Why:** Counterparty says "yes, 8500, Thursday 10am" and then changes to "9000, Friday." The first "yes" doesn't apply to the second. Token = hash of the values at the moment of the read-back; if any value changed, token changes, `outcome='superseded'`, agent re-reads. And `classify_response` is conservative — silence, "uh-huh", hedge never become yes.
+
+**Consequence:** Phase 6 has PHRASES + classify_response + read_back_token + 28 tests covering every yes/no/ambiguous variant. Trial by fire ("agree and then change") has a pre-tested response.
+
+---
+
+## D12 · Phases 1-8 as SEPARATE modules, not god-class
+
+**Alternatives:**
+1. A single `amarra_engine.py` with all phases
+2. **`phase1_detected.py` through `phase8_closed.py` + `phase_disruption.py`**, each with its own router ✓
+
+**Decision:** #2.
+
+**Why:** Makes technical defense easier ("show me phase 5") + makes test isolation easier (each phase has its own test_phaseN.py). Also maps 1:1 to the panel's visual rail, which reduces cognitive load for the juror to follow the demo.
+
+**Consequence:** 9 `phase*.py` files, each ~200-400 lines. main.py just does orchestration. Cost: importing between phases requires care (phase 4 imports phase 5 and 6, but 5 and 6 can't import phase 4). Circular imports resolved via late-import inside functions.
+
+---
+
+## D13 · Auto-reset of the operation in `/demo/dial-market`
+
+**Alternatives:**
+1. Each dispatch requires manual reset via SQL
+2. Separate endpoint `/demo/reset`
+3. **`/demo/dial-market` does auto-reset unless `reset: false` is passed** ✓
+
+**Decision:** #3.
+
+**Why:** Without this, every test of the "OPEN MARKET" button in the panel hits admit() with "operation is in 'negotiating'". The panel button becomes one-click-and-works. Trade-off: if you WANTED to preserve the previous operation (for audit), you have to explicitly pass `reset:false`.
+
+**Consequence:** `_demo_reset()` clears `calls`, `auctions`, `phase_events` for the operation and puts it back to `mandate_issued`. Preserves `mandates` (hash doesn't change). Endpoint `/demo/reset` also exposed for explicit reset.
+
+---
+
+## D14 · Default language = English (AGENT_LANG=en), not Spanish
+
+**Alternatives:**
+1. Spanish default (the case is Manzanillo, Nauta's market is LatAm)
+2. **English default; pt/es as fallbacks when the carrier explicitly speaks them** ✓
+
+**Decision:** #2.
+
+**Why:** NextWave judge is international (Y.uno, Yuno). English is lingua franca. The challenge's bonus B2 allows language mixing — implemented via `_switch_language` which senses language change via Deepgram and reconfigures TTS on-the-fly. If the juror wants to test in Spanish, the agent follows along.
+
+**Consequence:** Every policy phrase has 3 branches (en/es/pt). Spanish tests preserved via `Mandate.lang` default "es" (only the runtime session uses "en" via env var). PHRASES dict + `_lang_key` helper.
+
+---
+
+## D15 · SMS DROPPED — email is the sole R3a channel
+
+**Alternatives:**
+1. SMS via Twilio (~$0.03/msg to BR)
 2. SMS + email
 3. **Email only** ✓
 
-**Decisão:** #3, tomada em 2026-08-30 tarde.
+**Decision:** #3, taken on 2026-08-30 afternoon.
 
-**Por quê:** SMS US→BR é frequentemente filtrado por carriers brasileiros (Vivo, Claro, TIM). Testamos, funcionou pros primeiros 3 mensagens curtas mas falhou pro recap real (multi-segmento com acentos). WhatsApp Business API seria alternativa robusta mas exige aprovação Meta (dias). Email via Resend funciona globalmente sem restrições e o enunciado diz "(SMS/e-mail)" com barra — um satisfaz.
+**Why:** SMS US→BR is frequently filtered by Brazilian carriers (Vivo, Claro, TIM). We tested — worked for the first 3 short messages but failed on the real recap (multi-segment with accents). WhatsApp Business API would be a robust alternative but requires Meta approval (days). Email via Resend works globally without restrictions and the challenge says "(SMS/email)" with a slash — one satisfies.
 
-**Consequência:** `send_recap_sms` deletada. Endpoint `/demo/test-sms` fora. Codebase mais limpo pro pitch — não precisa explicar "por que SMS falha". Trade-off: perdemos redundância de canal. Mitigação: `RECAP_TO` + `RECAP_CC` comma-separated pra múltiplos emails (jurados incluídos).
-
----
-
-## D16 · Ngrok em vez de deploy real (Fly.io, Railway)
-
-**Alternativas:**
-1. Deploy real em Fly.io / Railway (backend 24/7)
-2. **Ngrok + laptop local** ✓
-
-**Decisão:** #2.
-
-**Por quê:** Ngrok reserved domain (grátis) resolve o problema de "público HTTPS pra Twilio + Lovable falarem com o backend" em 5 minutos. Deploy real levaria 30-40 min de configuração + primeira falha. Trade-off: laptop precisa estar ligado durante a demo. Aceitável pra o formato do hackathon.
-
-**Consequência:** `PUBLIC_HOST=clique-lukewarm-frail.ngrok-free.dev` no `.env`. Script `start_all.ps1` sobe uvicorn + ngrok num clique. Se um dia migrar pra deploy real, só troca `PUBLIC_HOST` — código não muda.
+**Consequence:** `send_recap_sms` deleted. `/demo/test-sms` endpoint gone. Cleaner codebase for the pitch — no need to explain "why SMS fails." Trade-off: we lose channel redundancy. Mitigation: `RECAP_TO` + `RECAP_CC` comma-separated for multiple emails (jurors included).
 
 ---
 
-## D17 · Auto-commit + push depois de cada mudança que passa nos testes
+## D16 · Ngrok instead of real deploy (Fly.io, Railway)
 
-**Alternativas:**
-1. Perguntar antes de cada commit
-2. Commitar mudanças pequenas, perguntar antes de mudanças grandes
-3. **Auto-commit + push depois de `pytest` verde** ✓
+**Alternatives:**
+1. Real deploy on Fly.io / Railway (backend 24/7)
+2. **Ngrok + local laptop** ✓
 
-**Decisão:** #3, formalizada em 2026-08-30 tarde depois do usuário confirmar preferência.
+**Decision:** #2.
 
-**Por quê:** Velocidade — hackathon é velocidade acima de elegância. Cada round-trip "pergunto antes?" custa 30s. Salvamos em memória permanente do assistente pra próximas sessões honrarem.
+**Why:** Ngrok reserved domain (free) solves the "public HTTPS for Twilio + Lovable to talk to the backend" problem in 5 minutes. Real deploy would take 30-40 min of setup + first failure. Trade-off: laptop must be running during the demo. Acceptable for the hackathon format.
 
-**Consequência:** Formato padrão de commit: título curto imperativo + body com contexto + "N tests still green" + Co-Authored-By. Push direto pro `main` (branch principal, mesma que Lovable usa). Exceção: mudança grande de schema, refactor de API pública, ou coisa que afeta pitch — ainda pergunto antes.
-
----
-
-## D18 · Jurados como config, não hard-code
-
-**Alternativas:**
-1. Hard-code os telefones dos jurados no código
-2. Env var por jurado
-3. **`judges.json` com roster estruturado + endpoint `/demo/call-judge/{id}`** ✓
-
-**Decisão:** #3.
-
-**Por quê:** Jurados podem mudar até o dia do pitch. Config em arquivo separado é editar sem tocar código. Endpoint faz o padrão callback (Twilio disca eles, zero custo pro lado deles). `RECAP_CC` no `.env` faz email do recap chegar automaticamente na caixa deles.
-
-**Consequência:** `judges.json` tem Walter (BR) e Denis Dvoretskikh (AR). Denis é AR — flag documentado que exige Geo Permission ARG no Twilio antes do primeiro `/demo/call-judge/denis`.
+**Consequence:** `PUBLIC_HOST=clique-lukewarm-frail.ngrok-free.dev` in `.env`. Script `start_all.ps1` boots uvicorn + ngrok in one click. If one day migrating to real deploy, just change `PUBLIC_HOST` — code doesn't change.
 
 ---
 
-## D19 · Frontend mobile-first (430px) mesmo rodando em desktop
+## D17 · Auto-commit + push after every change that passes tests
 
-**Alternativas:**
-1. Layout desktop tradicional (3 colunas lado a lado)
-2. Responsive (mesma UI, layouts adaptativos)
-3. **Mobile-first fixo (max-width 430px, tabs no lugar de colunas)** ✓
+**Alternatives:**
+1. Ask before each commit
+2. Commit small changes, ask before big ones
+3. **Auto-commit + push after `pytest` green** ✓
 
-**Decisão:** #3.
+**Decision:** #3, formalized on 2026-08-30 afternoon after user confirmed preference.
 
-**Por quê:** Painel de operação é consumo mid-call, não navegação. Mobile impõe hierarquia visual clara — countdown gigante, phase rail, uma tab por visão. Também facilita o jurado abrir no próprio celular durante a demo.
+**Why:** Speed — hackathon is speed above elegance. Each round-trip "should I commit?" costs 30s. Saved to the assistant's permanent memory so future sessions honor it.
 
-**Consequência:** Prompts Lovable (`LOVABLE_PROMPT_MOBILE_CALL.md`, `LOVABLE_PROMPT_OUTBOUND_BUTTON.md`) descrevem bottom-sheet-style, botões pill de 56px, tabs em vez de sidebar. Lovable implementou (commits do bot `gpt-engineer-app`).
-
----
-
-## D20 · Renegociação automática pro runner-up (fase disruption)
-
-**Alternativas:**
-1. Quando `report_disruption` dispara, só marca a operação como disrupted e para
-2. Marca disrupted + escala pro humano decidir o que fazer
-3. **Marca disrupted + auto-dispara callback pro segundo colocado do último leilão (dentro do teto)** ✓
-
-**Decisão:** #3.
-
-**Por quê:** Resultado #3 do enunciado exige renegociação sem passar do mandato. Se aguardar humano, perdemos tempo do free time (o relógio!). Runner-up já foi negociado, o `auction_quotes` tem o preço final — se ainda cabe no teto, é a decisão certa em automático. Se não cabe → escala.
-
-**Consequência:** `phase_disruption.py::renegotiate_with_runner_up` lê `auction_quotes`, filtra `winner=false` + `final_ask <= max_rate`, ordena por preço, disca o vencedor via `tw.dial_counterparty`. Se não houver viável, chama `_escalate_no_runner_up`.
+**Consequence:** Standard commit format: short imperative title + body with context + "N tests still green" + Co-Authored-By. Push directly to `main` (the primary branch, same one Lovable uses). Exception: big schema change, public API refactor, or anything affecting the pitch — still ask first.
 
 ---
 
-## D21 · Dossiê como artefato único auditável (JSON aninhado)
+## D18 · Jurors as config, not hard-code
 
-**Alternativas:**
-1. Múltiplas queries que o jurado precisa cruzar
-2. View SQL agregada
-3. **Row em `dossiers` com blob JSON contendo tudo: financial, operational, timeline, commitments, comparison, escalations, mandate_hash, headline** ✓
+**Alternatives:**
+1. Hard-code juror phone numbers in the code
+2. Env var per juror
+3. **`judges.json` with structured roster + endpoint `/demo/call-judge/{id}`** ✓
 
-**Decisão:** #3.
+**Decision:** #3.
 
-**Por quê:** R4 do enunciado é "auditable trail". Se o jurado abre uma URL e vê tudo, o R4 está literalmente respondido. Formato JSON permite renderizar de qualquer forma no painel + consumir via API + subir on-chain como IPFS metadata futuramente.
+**Why:** Jurors can change until pitch day. Config in a separate file is edit-without-touching-code. The endpoint uses the callback pattern (Twilio dials them, zero cost on their side). `RECAP_CC` in `.env` makes the recap email automatically land in their inbox.
 
-**Consequência:** Fase 8 tem `build_dossier()` que agrega 6 fontes. Frontend rota `/dossier/:ref`. Endpoint `/phase8/dossier/{op_id}`. Recap R3a é a mesma coisa em texto humano (email).
-
----
-
-## D22 · Coreografia de 20 min com endpoint único `/demo/scenario/full`
-
-**Alternativas:**
-1. Cada fase é curl separado, jurado vê você digitar
-2. Script bash que sequencia curls
-3. **`POST /demo/scenario/full`** que faz reset → issue mandate → open market e retorna plano ✓
-
-**Decisão:** #3.
-
-**Por quê:** Pitch de 7 min não pode ter "espera, deixa eu digitar o próximo curl". Botão único. `demo_scenario.py` faz polling do `/demo/scenario/status/{ref}` e mostra scorecard 7/6 verde em tempo real.
-
-**Consequência:** `demo_scenario.py` + `OBJECTIVES_TO_RESULTS.md` + `SYNC_STATUS.md` documentam a coreografia. Rodar durante o pitch: 1 comando kickoff + 1 comando close, o resto acontece via chamadas reais.
+**Consequence:** `judges.json` has Walter (BR) and Denis Dvoretskikh (AR). Denis is AR — documented flag that requires Geo Permission ARG on Twilio before the first `/demo/call-judge/denis`.
 
 ---
 
-## D23 · CORS permissivo (`allow_origins=["*"]`) no backend
+## D19 · Mobile-first frontend (430px) even when running on desktop
 
-**Alternativas:**
-1. Whitelist explícita dos origens (Lovable, localhost)
-2. **Wildcard `*` com `allow_credentials=False`** ✓
+**Alternatives:**
+1. Traditional desktop layout (3 columns side by side)
+2. Responsive (same UI, adaptive layouts)
+3. **Fixed mobile-first (max-width 430px, tabs instead of columns)** ✓
 
-**Decisão:** #2.
+**Decision:** #3.
 
-**Por quê:** Hackathon-mode. Wildcard é seguro quando não há cookies (credentials=False força isso). O painel Lovable + `curl` de dev + browser preview do desenvolvedor todos passam sem drama. Trade-off: qualquer site externo pode chamar o backend. Aceitável pra demo, seria restringido em produção.
+**Why:** The operations panel is mid-call consumption, not browsing. Mobile forces clear visual hierarchy — huge countdown, phase rail, one tab per view. Also makes it easier for the juror to open on their own phone during the demo.
 
-**Consequência:** `main.py` tem 8 linhas de `app.add_middleware(CORSMiddleware, ...)`. Rota de escapatória: se um jurado abrir o painel do celular dele, funciona sem config extra.
-
----
-
-## D24 · Workflow git — auto-commit direto no `main` (sem PR)
-
-**Alternativas:**
-1. `main` protegido, tudo via PR revisada
-2. Branch `dev` + PR pra `main` a cada bloco
-3. **Direto no `main`, sem branch intermediária** ✓
-
-**Decisão:** #3, depois de tentar #2 e verificar que Lovable também escreve no `main` direto.
-
-**Por quê:** Lovable auto-commita no `main`. Se nós usamos `dev`, cada PR precisa rebasar com o Lovable. Overhead alto pra hackathon. Direto no `main` sincroniza com o Lovable naturalmente.
-
-**Consequência:** Branch `dev` deletada. Todos os pushes vão pra `main`. Confia no `pytest` verde como gate.
+**Consequence:** Lovable prompts (`LOVABLE_PROMPT_MOBILE_CALL.md`, `LOVABLE_PROMPT_OUTBOUND_BUTTON.md`) describe bottom-sheet-style, 56px pill buttons, tabs instead of sidebar. Lovable implemented (commits from bot `gpt-engineer-app`).
 
 ---
 
-## Métricas do voo
+## D20 · Automatic renegotiation with runner-up (disruption phase)
 
-- **34 commits** entre o início e o momento deste registro
-- **9 arquivos `phase*.py`** na espinha (~2500 linhas)
-- **9 arquivos SQL** de migração (~500 linhas)
-- **951 testes** pytest, ~15 segundos total
-- **13 endpoints REST** demo + 9 fase + 6 Twilio webhooks + 1 WebSocket
-- **13 tabelas** Supabase + Realtime + Storage
-- **5 prompts Lovable** consumidos (`LOVABLE_PROMPT_*.md`)
-- **Zero dependências pesadas fora da stack** — sem Redis, RabbitMQ, K8s, Elasticsearch
+**Alternatives:**
+1. When `report_disruption` fires, just mark the operation as disrupted and stop
+2. Mark disrupted + escalate for the human to decide what to do
+3. **Mark disrupted + auto-dispatch callback to the second-place from the last auction (within ceiling)** ✓
 
-## Última decisão · quando parar
+**Decision:** #3.
 
-**D25 — Parar de fazer feature, focar em provar ao vivo:** de agora até a demo, cada minuto vai pra rodar `dial_market` real + call inbound real + `close` real + gerar o dossiê. Cada objetivo que fica ✅ na visão de status é mais valioso que qualquer feature nova. O software está pronto; falta usar.
+**Why:** Expected result #3 of the challenge requires renegotiation without exceeding the mandate. If we wait for a human, we lose free-time (the clock!). Runner-up was already negotiated, `auction_quotes` has the final price — if it still fits under the ceiling, it's the right auto decision. If it doesn't fit → escalate.
+
+**Consequence:** `phase_disruption.py::renegotiate_with_runner_up` reads `auction_quotes`, filters `winner=false` + `final_ask <= max_rate`, sorts by price, dials the winner via `tw.dial_counterparty`. If no viable one, calls `_escalate_no_runner_up`.
 
 ---
 
-_Registro compilado em 2026-08-30, tarde. Versão viva — cada decisão futura vira D26, D27..._
+## D21 · Dossier as a single auditable artifact (nested JSON)
+
+**Alternatives:**
+1. Multiple queries the juror has to cross-reference
+2. Aggregated SQL view
+3. **Row in `dossiers` with JSON blob containing everything: financial, operational, timeline, commitments, comparison, escalations, mandate_hash, headline** ✓
+
+**Decision:** #3.
+
+**Why:** R4 of the challenge is "auditable trail". If the juror opens a URL and sees everything, R4 is literally answered. JSON format lets us render however we want in the panel + consume via API + upload on-chain as IPFS metadata in the future.
+
+**Consequence:** Phase 8 has `build_dossier()` that aggregates 6 sources. Frontend route `/dossier/:ref`. Endpoint `/phase8/dossier/{op_id}`. R3a recap is the same thing in human text (email).
+
+---
+
+## D22 · 20-min choreography with single endpoint `/demo/scenario/full`
+
+**Alternatives:**
+1. Each phase is a separate curl, juror watches you type
+2. Bash script that sequences curls
+3. **`POST /demo/scenario/full`** that does reset → issue mandate → open market and returns plan ✓
+
+**Decision:** #3.
+
+**Why:** A 7-min pitch can't have "wait, let me type the next curl". Single button. `demo_scenario.py` polls `/demo/scenario/status/{ref}` and shows a 7/6 green scorecard in real time.
+
+**Consequence:** `demo_scenario.py` + `OBJECTIVES_TO_RESULTS.md` + `SYNC_STATUS.md` document the choreography. Run during the pitch: 1 kickoff command + 1 close command, the rest happens via real calls.
+
+---
+
+## D23 · Permissive CORS (`allow_origins=["*"]`) on the backend
+
+**Alternatives:**
+1. Explicit origin whitelist (Lovable, localhost)
+2. **Wildcard `*` with `allow_credentials=False`** ✓
+
+**Decision:** #2.
+
+**Why:** Hackathon mode. Wildcard is safe when there are no cookies (credentials=False enforces this). The Lovable panel + dev `curl` + the developer's browser preview all pass without drama. Trade-off: any external site can call the backend. Acceptable for demo, would be restricted in production.
+
+**Consequence:** `main.py` has 8 lines of `app.add_middleware(CORSMiddleware, ...)`. Escape hatch: if a juror opens the panel on their phone, it works without extra config.
+
+---
+
+## D24 · Git workflow — auto-commit directly to `main` (no PR)
+
+**Alternatives:**
+1. `main` protected, everything via reviewed PR
+2. `dev` branch + PR to `main` per block
+3. **Directly to `main`, no intermediate branch** ✓
+
+**Decision:** #3, after trying #2 and finding out Lovable also writes to `main` directly.
+
+**Why:** Lovable auto-commits to `main`. If we use `dev`, every PR needs to rebase against Lovable. High overhead for a hackathon. Directly to `main` naturally syncs with Lovable.
+
+**Consequence:** `dev` branch deleted. All pushes go to `main`. Trust in `pytest` green as the gate.
+
+---
+
+## Flight metrics
+
+- **34 commits** between start and this log
+- **9 `phase*.py` files** in the spine (~2500 lines)
+- **9 SQL migration files** (~500 lines)
+- **951 pytest cases**, ~15 seconds total
+- **13 REST demo endpoints** + 9 phase endpoints + 6 Twilio webhooks + 1 WebSocket
+- **13 Supabase tables** + Realtime + Storage
+- **5 Lovable prompts** consumed (`LOVABLE_PROMPT_*.md`)
+- **Zero heavy dependencies outside the stack** — no Redis, RabbitMQ, K8s, Elasticsearch
+
+## Last decision · when to stop
+
+**D25 — Stop shipping features, focus on proving live:** from now until the demo, every minute goes to running `dial_market` for real + real inbound call + real `close` + generating the dossier. Each objective that turns ✅ on the status view is more valuable than any new feature. The software is ready; it needs to be used.
+
+---
+
+_Log compiled on 2026-08-30, afternoon. Living version — each future decision becomes D26, D27..._
