@@ -30,9 +30,9 @@ export function MobilePhaseStrip({
     <section className="space-y-2">
       <div className="flex items-baseline justify-between gap-3">
         <div className="min-w-0">
-          <div className="label-caps text-[0.6rem]">fase</div>
+          <div className="label-caps text-[0.6rem]">phase</div>
           <div className="truncate text-lg leading-tight font-bold">
-            {anchor ? SPINE_LABEL[anchor as never] : "aguardando operação"}
+            {anchor ? SPINE_LABEL[anchor as never] : "waiting for operation"}
           </div>
         </div>
         <div className="num shrink-0 text-sm text-muted-foreground">
@@ -67,10 +67,10 @@ export function MobilePhaseStrip({
           onClick={branch === "escalated" ? onOpenEscalation : undefined}
           className={`w-full rounded-xl border px-3 py-2 text-left ${BRANCH_TONE[branch] ?? "border-border"}`}
         >
-          <div className="label-caps text-[0.6rem]">desvio · {branch}</div>
+          <div className="label-caps text-[0.6rem]">detour · {branch}</div>
           <div className="text-sm font-bold">
             {[...phaseEvents].reverse().find((e) => e.phase === branch)?.detail ??
-              "aguardando decisão"}
+              "awaiting decision"}
           </div>
         </button>
       )}

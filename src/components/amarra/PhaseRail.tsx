@@ -121,9 +121,9 @@ export function PhaseRail({
 
       <div className="num mt-2 truncate text-sm text-muted-foreground">
         {empty
-          ? "aguardando uma operação"
+          ? "waiting for an operation"
           : failedEvent
-            ? `falhou · ${failedEvent.detail ?? failedEvent.trigger}`
+            ? `failed · ${failedEvent.detail ?? failedEvent.trigger}`
             : (currentEvent?.detail ?? currentEvent?.trigger ?? "—")}
       </div>
 
@@ -161,7 +161,7 @@ function BranchCard({
     <div className={`mt-3 rounded-md border-2 ${t.border} ${t.bg} px-4 py-3`}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className={`label-caps ${t.text}`}>desvio · {phase}</div>
+          <div className={`label-caps ${t.text}`}>detour · {phase}</div>
           <div className="text-lg font-bold">{event.detail ?? event.trigger}</div>
           <div className="num text-xs text-muted-foreground">{event.trigger}</div>
         </div>
@@ -171,15 +171,15 @@ function BranchCard({
             onClick={onOpenEscalation}
             className="rounded border-2 border-danger px-3 py-1.5 text-sm font-bold tracking-wide uppercase text-danger hover:bg-danger/20"
           >
-            abrir decisão
+            open decision
           </button>
         )}
       </div>
 
       {(onTime || late) && (
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <Option label="no prazo" data={onTime} currency={currency} tone="border-live" />
-          <Option label="atrasado" data={late} currency={currency} tone="border-warn" />
+          <Option label="on time" data={onTime} currency={currency} tone="border-live" />
+          <Option label="late" data={late} currency={currency} tone="border-warn" />
         </div>
       )}
       {delta != null && (
@@ -189,7 +189,7 @@ function BranchCard({
       )}
       {exceeds != null && exceeds > 0 && (
         <div className="num mt-1 text-base font-bold text-danger">
-          excede o mandato em {money(exceeds, currency)}
+          exceeds the mandate by {money(exceeds, currency)}
         </div>
       )}
     </div>
@@ -214,7 +214,7 @@ function Option({
   return (
     <div className={`rounded border ${tone} bg-background/50 px-3 py-2`}>
       <div className="label-caps">{String(data["label"] ?? label)}</div>
-      <div className="num text-sm">frete: {money(amount, currency)}</div>
+      <div className="num text-sm">freight: {money(amount, currency)}</div>
       <div className="num text-sm">demurrage: {money(demurrage ?? 0, currency)}</div>
       <div className="num text-base font-bold">total: {money(total, currency)}</div>
       {data["eta"] != null && (

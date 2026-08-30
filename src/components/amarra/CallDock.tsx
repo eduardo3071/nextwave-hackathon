@@ -107,14 +107,14 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
       setFailure(s);
       setPending(null);
     } else if (s === "done") {
-      toast.success(`✓ chamada com ${demo.phone ?? pending.to ?? "—"} encerrada`);
+      toast.success(`✓ call with ${demo.phone ?? pending.to ?? "—"} ended`);
       setPending(null);
     }
   }, [demo, pending]);
 
   const callMe = async () => {
     if (!backendUrl) {
-      toast.error("VITE_BACKEND_URL não está configurado");
+      toast.error("VITE_BACKEND_URL is not configured");
       return;
     }
     setBusy(true);
@@ -131,13 +131,13 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
         error?: string;
       };
       if (!res.ok || data.error) {
-        toast.error(data.error ?? `${res.status} · falha ao discar`);
+        toast.error(data.error ?? `${res.status} · failed to dial`);
         return;
       }
       setPending({ sid: data.call_sid, to: data.to });
-      toast.success(`Discando pra ${data.to ?? "seu número"}`);
+      toast.success(`Dialing ${data.to ?? "your number"}`);
     } catch (e) {
-      toast.error(`Backend inacessível: ${String(e)}`);
+      toast.error(`Backend unreachable: ${String(e)}`);
     } finally {
       setBusy(false);
     }
@@ -154,16 +154,16 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
       >
         {live ? (
           <>
-            <div className="text-sm font-bold tracking-wide text-live">🟢 EM CHAMADA</div>
+            <div className="text-sm font-bold tracking-wide text-live">🟢 ON THE CALL</div>
             <div className="num mt-1 text-lg">{inbound.phone ?? "—"}</div>
-            <div className="num text-xs text-muted-foreground">Duração: {clock(secs)}</div>
+            <div className="num text-xs text-muted-foreground">Duration: {clock(secs)}</div>
           </>
         ) : (
           <>
-            <div className="text-sm font-bold tracking-wide text-live">📞⬇️ CHAMADA ENTRANDO</div>
-            <div className="num mt-1 text-lg">De: {inbound.phone ?? "—"}</div>
-            <div className="num text-xs text-muted-foreground">Toca há: {secs}s</div>
-            <div className="mt-2 text-xs text-live">⏳ agente entrando em segundos</div>
+            <div className="text-sm font-bold tracking-wide text-live">📞⬇️ INCOMING CALL</div>
+            <div className="num mt-1 text-lg">From: {inbound.phone ?? "—"}</div>
+            <div className="num text-xs text-muted-foreground">Ringing for: {secs}s</div>
+            <div className="mt-2 text-xs text-live">⏳ agent joining in seconds</div>
           </>
         )}
       </section>
@@ -176,11 +176,11 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
     return (
       <section className="rounded-xl border-2 border-accent bg-accent/10 px-4 py-3">
         <div className="text-sm font-bold tracking-wide text-accent">
-          {live ? "🟢 conectado" : "📞⬆️ Discando"}
+          {live ? "🟢 connected" : "📞⬆️ Dialing"}
         </div>
-        <div className="num mt-1 text-lg">{demo?.phone ?? pending.to ?? "seu número"}</div>
+        <div className="num mt-1 text-lg">{demo?.phone ?? pending.to ?? "your number"}</div>
         <div className="text-xs text-muted-foreground">
-          {live ? "você mandou a Twilio ligar pra você" : "⚡ atende quando tocar"}
+          {live ? "you asked Twilio to call you" : "⚡ pick up when it rings"}
         </div>
         <div className="mt-3 h-1.5 overflow-hidden rounded bg-border">
           <div
@@ -201,13 +201,13 @@ export function CallDock({ calls, big = false }: { calls: Call[]; big?: boolean 
           big ? "min-h-16 text-lg" : "min-h-14 text-base"
         }`}
       >
-        📞 Me liga
+        📞 Call me
       </button>
       <div className="num mt-2 text-center text-xs text-muted-foreground">
-        A Twilio vai discar pro seu celular · sem gasto internacional
+        Twilio will dial your phone · no international charges
       </div>
       {failure && (
-        <div className="num mt-2 text-center text-xs text-danger">❌ chamada falhou: {failure}</div>
+        <div className="num mt-2 text-center text-xs text-danger">❌ call failed: {failure}</div>
       )}
     </section>
   );

@@ -12,11 +12,11 @@ export function RecapCard({
   return (
     <section className="panel rounded-md">
       <div className="border-b border-border px-3 py-2">
-        <div className="label-caps">recap enviado · R3a</div>
+        <div className="label-caps">recap sent · R3a</div>
       </div>
       {recaps.length === 0 ? (
         <div className="num px-3 py-3 text-sm text-muted-foreground">
-          nenhum recap ainda — a operação não fecha sem ele
+          no recap yet — the operation cannot close without it
         </div>
       ) : (
         <ul className="divide-y divide-border">
@@ -46,7 +46,7 @@ export function RecapCard({
             onClick={onOpenDossier}
             className="num mt-1 rounded border border-live px-2 py-0.5 text-xs font-bold uppercase text-live hover:bg-live/15"
           >
-            ver dossiê
+            view dossier
           </button>
         </div>
       )}

@@ -86,14 +86,14 @@ export function MobileHeader({
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0">
             <div className="num truncate text-sm font-bold tracking-wide text-accent">
-              {operation?.ref ?? "sem operação"}
+              {operation?.ref ?? "no operation"}
             </div>
             <div className="num truncate text-[11px] text-muted-foreground">
               {operation
                 ? [operation.container, operation.origin && `${operation.origin} → ${operation.destination}`]
                     .filter(Boolean)
                     .join(" · ")
-                : "aguardando descarga"}
+                : "awaiting discharge"}
             </div>
           </div>
           {hasDossier && (
@@ -102,7 +102,7 @@ export function MobileHeader({
               onClick={onOpenDossier}
               className="shrink-0 rounded-full border border-live px-3 py-1.5 text-[11px] font-bold tracking-wide text-live uppercase"
             >
-              dossiê
+              dossier
             </button>
           )}
         </div>
@@ -112,10 +112,10 @@ export function MobileHeader({
             {!operation
               ? "free time"
               : frozen
-                ? `encerrada · ${operation.clock_state}`
+                ? `closed · ${operation.clock_state}`
                 : remaining != null && remaining < 0
-                  ? "demurrage correndo"
-                  : "free time restante"}
+                  ? "demurrage running"
+                  : "free time left"}
           </span>
           <span
             className={`num leading-[1.05] font-bold tracking-tight ${tone} ${
@@ -127,7 +127,7 @@ export function MobileHeader({
           </span>
           {operation && (
             <span className="num text-[11px] text-muted-foreground">
-              depois:{" "}
+              after:{" "}
               <span className="font-bold text-danger">
                 {money(operation.demurrage_per_day, currency)}/dia
               </span>
@@ -139,7 +139,7 @@ export function MobileHeader({
           {mandate ? (
             <>
               <Chip label="target" value={money(mandate.target_rate, currency)} tone="text-live" />
-              <Chip label="teto" value={money(mandate.max_rate, currency)} tone="text-danger" strong />
+              <Chip label="ceiling" value={money(mandate.max_rate, currency)} tone="text-danger" strong />
               <Chip
                 label="break-even"
                 value={money(mandate.break_even_rate, currency)}
@@ -147,11 +147,11 @@ export function MobileHeader({
               />
               <Chip label="hash" value={shortHash(mandate.mandate_hash)} tone="text-accent" />
               <Chip label="blocks" value={String(policyBlocks)} tone="text-danger" />
-              <Chip label="ancorados" value={String(anchored)} tone="text-live" />
+              <Chip label="anchored" value={String(anchored)} tone="text-live" />
             </>
           ) : (
             <div className="num rounded-xl border border-border bg-card/70 px-3 py-2 text-[11px] text-muted-foreground">
-              mandato ainda não emitido
+              mandate not issued yet
             </div>
           )}
         </div>

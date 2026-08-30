@@ -14,12 +14,12 @@ const ACTIVE = new Set(["dialing", "ringing", "live"]);
 /** Turns any backend error body into a sentence plus a concrete remedy. */
 function explain(status: number, body: string): string {
   const b = body.toLowerCase();
-  if (b.includes("21215")) return "21215 · habilite o Brasil em Twilio Geo Permissions";
-  if (b.includes("10004")) return "10004 · concorrência da conta Twilio estourada";
-  if (b.includes("21212")) return "21212 · o número de origem não é seu na Twilio";
-  if (b.includes("orçamento")) return `${body} · aumente TWILIO_CONCURRENCY no .env do backend`;
-  if (b.includes("r7")) return `${body} · precisa de 3 carriers`;
-  return body || `${status} · falha ao abrir mercado`;
+  if (b.includes("21215")) return "21215 · enable Brazil in Twilio Geo Permissions";
+  if (b.includes("10004")) return "10004 · Twilio account concurrency exceeded";
+  if (b.includes("21212")) return "21212 · the caller ID is not yours on Twilio";
+  if (b.includes("orçamento") || b.includes("budget")) return `${body} · raise TWILIO_CONCURRENCY in the backend .env`;
+  if (b.includes("r7")) return `${body} · needs 3 carriers`;
+  return body || `${status} · failed to open the market`;
 }
 
 export function MarketDock({
@@ -47,7 +47,7 @@ export function MarketDock({
 
   const dial = async () => {
     if (!backendUrl) {
-      toast.error("VITE_BACKEND_URL não está configurado");
+      toast.error("VITE_BACKEND_URL is not configured");
       return;
     }
     setBusy(true);
@@ -77,9 +77,9 @@ export function MarketDock({
       }
       setSheet(false);
       setEditing(false);
-      toast.success("🎯 Discando 3 carriers em paralelo…");
+      toast.success("🎯 Dialing 3 carriers in parallel…");
     } catch (e) {
-      const msg = `Backend inacessível: ${String(e)}`;
+      const msg = `Backend unreachable: ${String(e)}`;
       setInlineError(msg);
       toast.error(msg);
     } finally {
@@ -93,7 +93,7 @@ export function MarketDock({
       onClick={onClick}
       disabled={!onClick}
       title={
-        onClick ? undefined : `operação em ${phase ?? "—"} — reseta primeiro`
+        onClick ? undefined : `operation in ${phase ?? "—"} — reset first`
       }
       className={`w-full rounded-full border-2 px-5 py-2 text-left transition disabled:cursor-not-allowed ${
         tone === "live"
@@ -111,17 +111,17 @@ export function MarketDock({
     <section className="space-y-2">
       {ready
         ? pill(
-            carriers.length ? `🎯 Abrir mercado (${carriers.length})` : "🎯 Abrir mercado",
-            "disca as transportadoras em paralelo",
+            carriers.length ? `🎯 Open market (${carriers.length})` : "🎯 Open market",
+            "dials the carriers in parallel",
             "live",
             () =>
               setSheet(true),
           )
         : open
-          ? pill("🔓 Mercado aberto", `${activeLegs} pernas ativas`, "idle")
+          ? pill("🔓 Market open", `${activeLegs} active legs`, "idle")
           : phase
-            ? pill(`⏳ operação em ${phase}`, "reseta primeiro pra abrir mercado", "idle")
-            : pill("⏳ aguardando operação", "nenhuma operação viva", "idle")}
+            ? pill(`⏳ operation in ${phase}`, "reset first to open the market", "idle")
+            : pill("⏳ waiting for operation", "no live operation", "idle")}
 
       {inlineError && !sheet && (
         <div className="num rounded border border-danger/60 bg-danger/10 px-3 py-2 text-xs text-danger">
@@ -133,7 +133,7 @@ export function MarketDock({
         <div className="fixed inset-0 z-50 flex flex-col justify-end bg-background/70">
           <button
             type="button"
-            aria-label="fechar"
+            aria-label="close"
             className="flex-1"
             onClick={() => setSheet(false)}
           />
@@ -141,20 +141,20 @@ export function MarketDock({
             <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-border" />
 
             <div className="flex items-center justify-between">
-              <div className="label-caps">vai discar simultaneamente</div>
+              <div className="label-caps">will dial simultaneously</div>
               <button
                 type="button"
                 onClick={() => setEditing((v) => !v)}
                 className="num rounded border border-border px-2 py-1 text-[11px] text-muted-foreground"
               >
-                {editing ? "pronto" : "editar carriers"}
+                {editing ? "done" : "edit carriers"}
               </button>
             </div>
 
             <div className="mt-3 space-y-3">
               {carriers.length === 0 && !editing && (
                 <div className="num text-sm text-muted-foreground">
-                  as transportadoras configuradas no backend serão discadas em paralelo
+                  the carriers configured in the backend will be dialed in parallel
                 </div>
               )}
               {carriers.map((c, i) =>
@@ -177,15 +177,15 @@ export function MarketDock({
                 ) : (
                   <div key={i}>
                     <div className="text-base font-bold">📞 {c.name || c.id || "—"}</div>
-                    <div className="num text-sm text-muted-foreground">{c.phone || "número do backend"}</div>
+                    <div className="num text-sm text-muted-foreground">{c.phone || "number from backend"}</div>
                   </div>
                 ),
               )}
             </div>
 
             <div className="num mt-4 rounded border border-warn/50 bg-warn/10 px-3 py-2 text-xs text-warn">
-              ⚠️ {carriers.length ? `${carriers.length} celulares` : "os celulares"} vão tocar em ~2s.
-              Se algum não atender, o watchdog fecha em 45s.
+              ⚠️ {carriers.length ? `${carriers.length} phones` : "the phones"} will ring in ~2s.
+              If one does not answer, the watchdog closes it in 45s.
             </div>
 
             {inlineError && (
@@ -200,7 +200,7 @@ export function MarketDock({
                 onClick={() => setSheet(false)}
                 className="num flex-1 rounded-full border-2 border-border px-4 py-3 text-sm font-bold uppercase"
               >
-                cancelar
+                cancel
               </button>
               <button
                 type="button"
@@ -208,7 +208,7 @@ export function MarketDock({
                 onClick={() => void dial()}
                 className="num flex-1 rounded-full border-2 border-live bg-live/15 px-4 py-3 text-sm font-bold text-live uppercase disabled:opacity-50"
               >
-                {busy ? "discando…" : "🎯 discar"}
+                {busy ? "dialing…" : "🎯 dial"}
               </button>
             </div>
           </div>

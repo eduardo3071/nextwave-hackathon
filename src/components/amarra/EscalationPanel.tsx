@@ -28,7 +28,7 @@ function Option({
     <div className={`rounded border-2 ${tone} bg-background/60 px-3 py-2`}>
       <div className="label-caps">{String(data["label"] ?? fallbackLabel)}</div>
       <div className="num mt-1 flex justify-between text-sm">
-        <span className="text-muted-foreground">frete</span>
+        <span className="text-muted-foreground">freight</span>
         <span className="font-bold">{money(amount, currency)}</span>
       </div>
       <div className="num flex justify-between text-sm">
@@ -69,7 +69,7 @@ function Card({
     await callBackend(
       `/escalate/${escalation.call_id}/resolve`,
       { approved, note: note || null },
-      approved ? "Aprovado — o agente já foi avisado" : "Recusado — o agente segue no mandato",
+      approved ? "Approved — the agent has been told" : "Declined — the agent stays inside the mandate",
     );
     setBusy(false);
   };
@@ -83,11 +83,11 @@ function Card({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className={`label-caps ${resolved ? "text-live" : "text-danger"}`}>
-            {resolved ? "decisão registrada" : "decisão do humano · uma só"}
+            {resolved ? "decision recorded" : "human decision · just one"}
           </div>
           <div className="num text-xs text-muted-foreground">
             {escalation.trigger ?? "escalation"} · {timeOfDay(escalation.created_at)}
-            {escalation.human_joined_at && ` · humano entrou ${timeOfDay(escalation.human_joined_at)}`}
+            {escalation.human_joined_at && ` · human joined ${timeOfDay(escalation.human_joined_at)}`}
           </div>
         </div>
         {escalation.human_phone && (
@@ -99,27 +99,27 @@ function Card({
 
       {(onTime || late) && (
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <Option data={onTime} fallbackLabel="no prazo" currency={currency} tone="border-live" />
-          <Option data={late} fallbackLabel="atrasado" currency={currency} tone="border-warn" />
+          <Option data={onTime} fallbackLabel="on time" currency={currency} tone="border-live" />
+          <Option data={late} fallbackLabel="late" currency={currency} tone="border-warn" />
         </div>
       )}
 
       <div className="num mt-2 space-y-0.5">
         {delta != null && (
           <div className="text-sm">
-            delta entre as opções: <span className="font-bold">{money(delta, currency)}</span>
+            delta between options: <span className="font-bold">{money(delta, currency)}</span>
           </div>
         )}
         {exceeds != null && exceeds > 0 && (
           <div className="rounded border-2 border-danger bg-danger/20 px-2 py-1 text-lg font-bold text-danger">
-            excede o mandato em {money(exceeds, currency)}
+            exceeds the mandate by {money(exceeds, currency)}
           </div>
         )}
       </div>
 
       {resolved ? (
         <div className="num mt-2 text-sm font-bold text-live">
-          resolução: {escalation.resolution}
+          resolution: {escalation.resolution}
         </div>
       ) : (
         live && (
@@ -127,7 +127,7 @@ function Card({
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="nota da decisão (opcional)"
+              placeholder="decision note (optional)"
               className="num w-full rounded border border-border bg-background px-2 py-1.5 text-sm outline-none focus:border-accent"
             />
             <div className="flex gap-2">
@@ -137,7 +137,7 @@ function Card({
                 onClick={() => void decide(true)}
                 className="num flex-1 rounded border-2 border-live bg-live/15 px-3 py-2 text-base font-bold uppercase text-live hover:bg-live/25 disabled:opacity-50"
               >
-                aprovar
+                approve
               </button>
               <button
                 type="button"
@@ -145,7 +145,7 @@ function Card({
                 onClick={() => void decide(false)}
                 className="num flex-1 rounded border-2 border-danger bg-danger/15 px-3 py-2 text-base font-bold uppercase text-danger hover:bg-danger/25 disabled:opacity-50"
               >
-                recusar
+                decline
               </button>
             </div>
           </div>
@@ -167,9 +167,9 @@ export function EscalationPanel({
   if (escalations.length === 0) {
     return (
       <section className="panel rounded-md px-3 py-4">
-        <div className="label-caps">escalação</div>
+        <div className="label-caps">escalation</div>
         <div className="num mt-1 text-sm text-muted-foreground">
-          nenhuma decisão pendente — tudo que cabe no mandato o agente resolve sozinho
+          no pending decision — everything inside the mandate the agent settles alone
         </div>
       </section>
     );

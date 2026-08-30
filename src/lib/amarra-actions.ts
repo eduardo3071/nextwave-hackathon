@@ -12,7 +12,7 @@ export async function callBackend(
   okMessage?: string,
 ): Promise<boolean> {
   if (!backendUrl) {
-    toast.error("BACKEND_URL ou VITE_BACKEND_URL não está configurado");
+    toast.error("BACKEND_URL or VITE_BACKEND_URL is not configured");
     return false;
   }
   try {
@@ -31,13 +31,13 @@ export async function callBackend(
       } catch {
         /* body was not JSON; show it raw */
       }
-      toast.error(`${res.status} · ${reason || "sem corpo na resposta"}`);
+      toast.error(`${res.status} · ${reason || "no response body"}`);
       return false;
     }
     if (okMessage) toast.success(okMessage);
     return true;
   } catch (e) {
-    toast.error(`Backend inacessível: ${String(e)}`);
+    toast.error(`Backend unreachable: ${String(e)}`);
     return false;
   }
 }
